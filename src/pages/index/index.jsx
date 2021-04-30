@@ -1,9 +1,11 @@
-import React, {useState, useRef, useEffect} from "react";
+import React, {useState, useRef, useEffect, useReducer} from "react";
 import Outer from "../../components/outer/outer";
 import FileInput from '../../components/fileInput/file-input';
 import Canvas from '../../components/canvas/canvas';
 import InfoCard from '../../components/infoCard/infoCard';
 import canvas from "../../components/canvas/canvas";
+import classes from "./index.module.css";
+import ScreenShotLayer from '../../components/screenShotLayer/screenShotLayer'
 
 export default function Index(props) {
 
@@ -16,6 +18,7 @@ export default function Index(props) {
   const [imageInfo, setImageInfo] = useState({});
   const [position, setPosition] = useState({x: 0, y: 0, colorArrayData: []})
 
+  const [file, setFile] = useState(new File([], ''));
 
   const calcCursorPosition = throttle(function (ev, imgData) {
     const {nativeEvent: {offsetX, offsetY}, pageX, pageY} = ev;
@@ -57,7 +60,15 @@ export default function Index(props) {
     }
   }
 
-  const [file, setFile] = useState(new File([], ''));
+  function handleKeydown(ev) {
+
+
+  }
+
+  useEffect(function (ev) {
+    window.addEventListener('keydown', handleKeydown)
+  }, [])
+
 
   useEffect(function (ev) {
     getImageInfo(URL.createObjectURL(file)).then(function (imageInfo) {
@@ -130,24 +141,136 @@ export default function Index(props) {
     calcCursorPosition(ev, imageData)
   }
 
-  function handleKeyDown(ev) {
-    const {code} = ev;
-    console.log(code)
-    if (code === 'F1') {
-      console.log(code)
-      ev.preventDefault();
-      ev.stopPropagation();
+
+  const [actionStatus, actionEmitter] = useState({
+    type: 'SCREEN_SHOT',
+    moment: 'BEFORE_START',
+    startX: 0,
+    startY: 0,
+    endX: 0,
+    endY: 0
+  })
+
+  function handleClick(ev) {
+
+  }
+
+  function handleMouseDown(ev) {
+    console.log('down', ev);
+    const {nativeEvent: {offsetX, offsetY}} = ev;
+    if (actionStatus.type === 'SCREEN_SHOT') {
+      if (actionStatus.moment === 'BEFORE_START') {
+
+
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.strokeRect(offsetX, offsetY, 1, 1);
+
+        actionEmitter(function (prevStatus) {
+          return {
+            ...prevStatus,
+            moment: 'STARTED',
+            startX: ev.nativeEvent.offsetX,
+            startY: ev.nativeEvent.offsetY
+          }
+        })
+      }
+    }
+
+  }
+
+  function handleMouseMove(ev) {
+    const {nativeEvent: {offsetX, offsetY}} = ev;
+    if (actionStatus.type === 'SCREEN_SHOT') {
+      if (['BEFORE_START', 'END'].indexOf(actionStatus.moment) > -1) return;
+      if (actionStatus.moment === 'STARTED') {
+
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.clearRect();
+        if (imageData.data.length && Object.keys(imageInfo).length) {
+          ctx.drawImage(imageData, 0, 0, imageInfo.w, imageInfo.h)
+        }
+
+        ctx.strokeRect(offsetX, offsetY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY);
+
+        actionEmitter(function (prevStatus) {
+          return {
+            ...prevStatus,
+            endX: ev.nativeEvent.offsetX,
+            endY: ev.nativeEvent.offsetY
+          }
+        })
+      }
+
     }
   }
 
-  document.documentElement.addEventListener('keyup', ev => {
-  })
+  function handleMouseUp(ev) {
+    const {nativeEvent: {offsetX, offsetY}} = ev;
+    if (actionStatus.type === 'SCREEN_SHOT') {
+      if (actionStatus.moment === 'STARTED') {
+
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.clearRect();
+        if (imageData.data.length && Object.keys(imageInfo).length) {
+          ctx.drawImage(imageData, 0, 0, imageInfo.w, imageInfo.h)
+        }
+
+        ctx.strokeRect(offsetX, offsetY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY);
+
+
+        if (imageData.data.length) {
+          console.log(
+            canvasRef.current.getContext('2d').getImageData(actionStatus.startX, actionStatus.startY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY)
+          )
+        }
+
+        actionEmitter(function (prevStatus) {
+          return {
+            ...prevStatus,
+            moment: 'END',
+            endX: ev.nativeEvent.offsetX,
+            endY: ev.nativeEvent.offsetY
+          }
+        })
+      }
+
+    }
+  }
+
+  let layerStyle = null;
+
+  if (actionStatus.type === 'SCREEN_SHOT') {
+    layerStyle = {
+      top: actionStatus.startY,
+      left: actionStatus.startX,
+      width: `${Math.abs(actionStatus.endX - actionStatus.startX)}px`,
+      height: `${Math.abs(actionStatus.endY - actionStatus.startY)}px`,
+      border: '1px solid blue'
+    }
+  }
 
   return (
-    <div>
+    <div className={
+      [
+        classes.mainCon,
+      ].join(' ')
+    }>
       <Outer ref={outerRef}/>
       <FileInput handleInputChange={handleFileChange}/>
-      <Canvas onMouseMove={handleMouseMove} ref={canvasRef}/>
+      <div className={classes.sceneCon}>
+        <Canvas onClick={handleClick}
+
+                onMouseMove={handleMouseMove}
+                onMouseDown={handleMouseDown}
+                onMouseUp={handleMouseUp}
+                ref={canvasRef}/>
+        {/*{actionStatus.type === 'SCREEN_SHOT' ? (*/}
+        {/*  <div*/}
+        {/*    style={layerStyle}*/}
+        {/*    className={classes.screenShotLayer}/>*/}
+        {/*) : null}*/}
+      </div>
+
       <InfoCard position={position}/>
     </div>
   )

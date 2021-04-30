@@ -1,0 +1,23 @@
+.mainCon {
+  /*todo*/
+  position: relative;
+  width: 100vw;
+
+}
+
+
+.sceneCon {
+  position: relative;
+}
+
+
+
+.screenShotLayer {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: rgba(255, 255, 255, 0);
+  left: 0;
+  top: 0;
+  z-index: 10;
+}
