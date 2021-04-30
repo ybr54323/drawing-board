@@ -185,12 +185,13 @@ export default function Index(props) {
       if (actionStatus.moment === 'STARTED') {
 
         const ctx = canvasRef.current.getContext('2d');
-        ctx.clearRect();
+
+        ctx.clearRect(0, 0, imageInfo.w || 300, imageInfo.h || 150);
         if (imageData.data.length && Object.keys(imageInfo).length) {
           ctx.drawImage(imageData, 0, 0, imageInfo.w, imageInfo.h)
         }
 
-        ctx.strokeRect(offsetX, offsetY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY);
+        ctx.strokeRect(actionStatus.startX, actionStatus.startY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY);
 
         actionEmitter(function (prevStatus) {
           return {
@@ -206,35 +207,35 @@ export default function Index(props) {
 
   function handleMouseUp(ev) {
     const {nativeEvent: {offsetX, offsetY}} = ev;
-    if (actionStatus.type === 'SCREEN_SHOT') {
-      if (actionStatus.moment === 'STARTED') {
-
-        const ctx = canvasRef.current.getContext('2d');
-        ctx.clearRect();
-        if (imageData.data.length && Object.keys(imageInfo).length) {
-          ctx.drawImage(imageData, 0, 0, imageInfo.w, imageInfo.h)
-        }
-
-        ctx.strokeRect(offsetX, offsetY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY);
-
-
-        if (imageData.data.length) {
-          console.log(
-            canvasRef.current.getContext('2d').getImageData(actionStatus.startX, actionStatus.startY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY)
-          )
-        }
-
-        actionEmitter(function (prevStatus) {
-          return {
-            ...prevStatus,
-            moment: 'END',
-            endX: ev.nativeEvent.offsetX,
-            endY: ev.nativeEvent.offsetY
-          }
-        })
-      }
-
-    }
+    // if (actionStatus.type === 'SCREEN_SHOT') {
+    //   if (actionStatus.moment === 'STARTED') {
+    //
+    //     const ctx = canvasRef.current.getContext('2d');
+    //     ctx.clearRect(0, 0, imageInfo.w, imageInfo.h);
+    //     if (imageData.data.length && Object.keys(imageInfo).length) {
+    //       ctx.drawImage(imageData, 0, 0, imageInfo.w, imageInfo.h)
+    //     }
+    //
+    //     ctx.strokeRect(offsetX, offsetY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY);
+    //
+    //
+    //     if (imageData.data.length) {
+    //       console.log(
+    //         canvasRef.current.getContext('2d').getImageData(actionStatus.startX, actionStatus.startY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY)
+    //       )
+    //     }
+    //
+    //     actionEmitter(function (prevStatus) {
+    //       return {
+    //         ...prevStatus,
+    //         moment: 'END',
+    //         endX: ev.nativeEvent.offsetX,
+    //         endY: ev.nativeEvent.offsetY
+    //       }
+    //     })
+    //   }
+    //
+    // }
   }
 
   let layerStyle = null;
