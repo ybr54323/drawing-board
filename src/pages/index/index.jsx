@@ -5,8 +5,32 @@ import Canvas from '../../components/canvas/canvas';
 import InfoCard from '../../components/infoCard/infoCard';
 import canvas from "../../components/canvas/canvas";
 import classes from "./index.module.css";
-import ScreenShotLayer from '../../components/screenShotLayer/screenShotLayer'
 
+
+import {
+  TOP,
+  BOTTOM,
+  LEFT,
+  RIGHT,
+
+  ACTION_TYPE,
+  ACTION_MOMENT,
+
+  CANVAS_WIDTH,
+  CANVAS_HEIGHT,
+ABOUT_NUM,
+
+  drawRect, getCursor, getLine,
+
+  throttle, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT
+} from "../../function";
+
+
+const SCREEN_SHOT_LINE_STYLE = 'rgba(0,0,255,0.5)',
+  OPACITY_LINE_STYLE = 'rgba(0,0,0,0)',
+  NORMAL = 'rgba(0,0,0,1)';
+
+const {warn: w, log: l} = console;
 export default function Index(props) {
 
   const outerRef = useRef(null)
@@ -38,36 +62,13 @@ export default function Index(props) {
         imgData.data[start + 2],
         imgData.data[start + 3],
       ]
-
       setPosition({
         x: pageX + 15,
         y: pageY + 15,
         colorArrayData
       });
     }
-
   }, 0)
-
-
-  function throttle(fn, delay = 100) {
-    let start = -Infinity;
-    return function (...args) {
-      const now = +Date.now();
-      if (now - start >= delay) {
-        start = now;
-        return fn.apply(this, args);
-      }
-    }
-  }
-
-  function handleKeydown(ev) {
-
-
-  }
-
-  useEffect(function (ev) {
-    window.addEventListener('keydown', handleKeydown)
-  }, [])
 
 
   useEffect(function (ev) {
@@ -75,7 +76,6 @@ export default function Index(props) {
       console.log(imageInfo)
       setImageInfo(imageInfo);
       renderImage(canvasRef.current, imageInfo);
-
 
     }).catch(function (err) {
 
@@ -143,12 +143,14 @@ export default function Index(props) {
 
 
   const [actionStatus, actionEmitter] = useState({
-    type: 'SCREEN_SHOT',
-    moment: 'BEFORE_START',
+    type: 'SCREEN_SHOT', // todo
+    moment: ACTION_MOMENT.BEFORE_START, // STARTED
     startX: 0,
     startY: 0,
     endX: 0,
-    endY: 0
+    endY: 0,
+    cursor: getCursor(),
+    line: '', // top bottom left right
   })
 
   function handleClick(ev) {
@@ -156,22 +158,36 @@ export default function Index(props) {
   }
 
   function handleMouseDown(ev) {
-    console.log('down', ev);
     const {nativeEvent: {offsetX, offsetY}} = ev;
-    if (actionStatus.type === 'SCREEN_SHOT') {
-      if (actionStatus.moment === 'BEFORE_START') {
+    const {type, startX, startY, moment} = actionStatus;
+    if (type === ACTION_TYPE.SCREEN_SHOT) {
+      if (moment === ACTION_MOMENT.BEFORE_START) {
 
+        // const ctx = canvasRef.current.getContext('2d');
+        // ctx.strokeRect(offsetX, offsetY, 1, 1);
 
-        const ctx = canvasRef.current.getContext('2d');
-        ctx.strokeRect(offsetX, offsetY, 1, 1);
-
-        actionEmitter(function (prevStatus) {
-          return {
-            ...prevStatus,
-            moment: 'STARTED',
+        actionEmitter(
+          {
+            ...actionStatus,
+            moment: ACTION_MOMENT.STARTED,
             startX: ev.nativeEvent.offsetX,
             startY: ev.nativeEvent.offsetY
           }
+        )
+      }
+      if (moment === ACTION_MOMENT.END) {
+        const {endX, endY} = actionStatus;
+        if (!endX || !endY && endX !== 0 && endY !== 0) throw new Error('END状态下应该要有endX,endY');
+
+        // 判断是哪条边
+        const line = getLine(startX, startY, endX, endY, offsetX, offsetY);
+        if (line) w(line);
+        const moment = line ? ACTION_MOMENT.REGULATE : ACTION_MOMENT.END;
+        actionEmitter({
+          ...actionStatus,
+          moment,
+          cursor: getCursor(line),
+          line
         })
       }
     }
@@ -180,62 +196,175 @@ export default function Index(props) {
 
   function handleMouseMove(ev) {
     const {nativeEvent: {offsetX, offsetY}} = ev;
-    if (actionStatus.type === 'SCREEN_SHOT') {
-      if (['BEFORE_START', 'END'].indexOf(actionStatus.moment) > -1) return;
-      if (actionStatus.moment === 'STARTED') {
+    const {width, height} = canvasRef.current;
 
-        const ctx = canvasRef.current.getContext('2d');
 
-        ctx.clearRect(0, 0, imageInfo.w || 300, imageInfo.h || 150);
-        if (imageData.data.length && Object.keys(imageInfo).length) {
-          ctx.drawImage(imageData, 0, 0, imageInfo.w, imageInfo.h)
-        }
+    const {type, startX, startY, moment, line} = actionStatus;
+    if (type === ACTION_TYPE.SCREEN_SHOT) {
+      if ([ACTION_MOMENT.BEFORE_START].indexOf(moment) > -1) return;
+      if (moment === ACTION_MOMENT.STARTED) {
 
-        ctx.strokeRect(actionStatus.startX, actionStatus.startY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY);
+        drawRect(canvasRef.current, startX, startY, offsetX - startX, offsetY - startY);
 
-        actionEmitter(function (prevStatus) {
-          return {
-            ...prevStatus,
-            endX: ev.nativeEvent.offsetX,
-            endY: ev.nativeEvent.offsetY
+        actionEmitter(
+          {
+            ...actionStatus,
+            endX: offsetX,
+            endY: offsetY
           }
-        })
+        )
+      }
+    }
+
+    if (actionStatus.moment === ACTION_MOMENT.END) {
+      const {endX, endY} = actionStatus;
+
+
+      const line = getLine(startX, startY, endX, endY, offsetX, offsetY);
+      if (line) w(line)
+      actionEmitter({
+        ...actionStatus,
+        cursor: getCursor(line)
+      })
+    }
+
+    if (actionStatus.moment === ACTION_MOMENT.REGULATE) {
+      // 这个状态下才会有endX, endY
+      const {endX, endY} = actionStatus;
+      if (!endX || !endY && endX !== 0 && endY !== 0) throw new Error('当前不是REGULATE');
+
+
+      if (offsetX <= 0 || offsetY <= 0 || offsetX >= width || offsetY >= height) {
+        let nEv = {};
+        if (offsetX <= 0) nEv.offsetX = ABOUT_NUM;
+        if (offsetY <= 0) nEv.offsetY = ABOUT_NUM;
+        if (offsetX >= width) nEv.offsetX = width - ABOUT_NUM;
+        if (offsetY >= height) nEv.offsetY = height - ABOUT_NUM;
+        return handleMouseUp({...ev, nativeEvent: nEv});
       }
 
+      if (line === TOP) {
+        drawRect(canvasRef.current, startX, offsetY, endX - startX, endY - offsetY);
+      }
+      if (line === BOTTOM) {
+        drawRect(canvasRef.current, startX, startY, endX - startX, offsetY - startY);
+      }
+      if (line === LEFT) {
+        drawRect(canvasRef.current, offsetX, startY, endX - offsetX, endY - startY);
+      }
+      if (line === RIGHT) {
+        drawRect(canvasRef.current, startX, startY, offsetX - startX, endY - startY);
+      }
+
+      if (line === TOP_LEFT) drawRect(
+        canvasRef.current, offsetX, offsetY, endX - offsetX, endY - offsetY
+      );
+
+      if (line === TOP_RIGHT) drawRect(
+        canvasRef.current, startX, offsetY, offsetX - startX, endY - offsetY
+      )
+      if (line === BOTTOM_LEFT) drawRect(
+        canvasRef.current, offsetX, startY, endX - offsetX, offsetY - startY
+      )
+      if (line === BOTTOM_RIGHT) drawRect(
+        canvasRef.current, startX, startY, offsetX - startX, offsetY - startY
+      )
+
+
     }
+
   }
 
   function handleMouseUp(ev) {
     const {nativeEvent: {offsetX, offsetY}} = ev;
-    // if (actionStatus.type === 'SCREEN_SHOT') {
-    //   if (actionStatus.moment === 'STARTED') {
-    //
-    //     const ctx = canvasRef.current.getContext('2d');
-    //     ctx.clearRect(0, 0, imageInfo.w, imageInfo.h);
-    //     if (imageData.data.length && Object.keys(imageInfo).length) {
-    //       ctx.drawImage(imageData, 0, 0, imageInfo.w, imageInfo.h)
-    //     }
-    //
-    //     ctx.strokeRect(offsetX, offsetY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY);
-    //
-    //
-    //     if (imageData.data.length) {
-    //       console.log(
-    //         canvasRef.current.getContext('2d').getImageData(actionStatus.startX, actionStatus.startY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY)
-    //       )
-    //     }
-    //
-    //     actionEmitter(function (prevStatus) {
-    //       return {
-    //         ...prevStatus,
-    //         moment: 'END',
-    //         endX: ev.nativeEvent.offsetX,
-    //         endY: ev.nativeEvent.offsetY
-    //       }
-    //     })
-    //   }
-    //
-    // }
+    let {type, startX, startY, moment} = actionStatus;
+    if (type === ACTION_TYPE.SCREEN_SHOT) {
+      if (moment === ACTION_MOMENT.STARTED) {
+
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.clearRect(0, 0, imageInfo.w || CANVAS_WIDTH, imageInfo.h || CANVAS_HEIGHT);
+        if (imageData.data.length && Object.keys(imageInfo).length) {
+          ctx.drawImage(imageData, 0, 0, imageInfo.w, imageInfo.h)
+        }
+
+        ctx.strokeRect(startX, startY, offsetX - startX, offsetY - startY);
+
+        if (imageData.data.length) {
+          l(
+            canvasRef.current.getContext('2d').getImageData(actionStatus.startX, actionStatus.startY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY)
+          )
+        }
+
+        actionEmitter(function (prevStatus) {
+          return {
+            ...prevStatus,
+            moment: ACTION_MOMENT.END,
+            endX: offsetX,
+            endY: offsetY,
+            line: '',
+            cursor: getCursor()
+          }
+        })
+
+      }
+      if (actionStatus.moment === ACTION_MOMENT.REGULATE) {
+        let {endX, endY} = actionStatus;
+        if (!endX || !endY && endX !== 0 && endY !== 0) throw new Error('当前不是REGULATE');
+        const {line} = actionStatus;
+        if (!line) return;
+
+        // todo...
+        // top: sY 变
+        if (line === TOP) {
+          if (offsetY > endY) { // 上下边互换 todo >=
+            [startY, endY] = [endY, offsetY];
+          } else {
+            startY = offsetY;
+          }
+        }
+        // bottom：eY 变
+        else if (line === BOTTOM) {
+          if (offsetY < startY) { // 上下边互换
+            [startY, endY] = [offsetY, startY];
+          } else {
+            endY = offsetY;
+          }
+        }
+        // left: sX 变
+        else if (line === LEFT) {
+          if (offsetX > endX) {
+            [startX, endX] = [endX, offsetX];
+          } else {
+            startX = offsetX;
+          }
+        }
+        // right eX 变
+        else if (line === RIGHT) {
+          if (offsetX < startX) {
+            [startX, endX] = [offsetX, startX];
+          } else {
+            endX = offsetX;
+          }
+        }
+
+        else if (line === TOP_LEFT) {
+          // if ()
+        }
+
+        actionEmitter({
+          type: ACTION_TYPE.SCREEN_SHOT,
+          moment: ACTION_MOMENT.END,
+          startX,
+          startY,
+          endX,
+          endY,
+          cursor: getCursor(),
+          line: ''
+        })
+
+      }
+
+    }
   }
 
   let layerStyle = null;
@@ -255,7 +384,11 @@ export default function Index(props) {
       [
         classes.mainCon,
       ].join(' ')
-    }>
+    }
+         style={{
+           cursor: actionStatus.cursor
+         }}
+    >
       <Outer ref={outerRef}/>
       <FileInput handleInputChange={handleFileChange}/>
       <div className={classes.sceneCon}>
@@ -271,7 +404,11 @@ export default function Index(props) {
         {/*    className={classes.screenShotLayer}/>*/}
         {/*) : null}*/}
       </div>
-
+      <h2>{actionStatus.moment}</h2>
+      <p>{actionStatus.startX}</p>
+      <p>{actionStatus.startY}</p>
+      <p>{actionStatus.endX}</p>
+      <p>{actionStatus.endY}</p>
       <InfoCard position={position}/>
     </div>
   )
