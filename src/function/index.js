@@ -53,12 +53,40 @@ export function drawRegulateRect(canvas, startX, startY, width, height, imageInf
   ctx.lineWidth = SCREEN_SHOT_LINE_WIDTH;
   ctx.lineJoin = SCREEN_SHOT_LINE_JOIN;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
   ctx.drawImage(imageInfo.image, 0, 0, canvas.width, canvas.height);
+  // 置灰
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < imageData.data.length; i += 4) {
+    imageData.data[i] *= 0.5;
+    imageData.data[i + 1] *= 0.5;
+    imageData.data[i + 2] *= 0.5;
+    // imageData.data[i + 3] *= 0.5;
+  }
+  ctx.putImageData(imageData, 0, 0);
 
 
   ctx.beginPath();
-  ctx.setLineDash([3, 3]);
-  ctx.strokeRect(startX, startY, width, height);
+  ctx.drawImage(imageInfo.image, startX, startY, width, height, startX, startY, width, height);
+  // todo 8个点
+  const midX = width / 2 + startX,
+    midY = height / 2 + startY,
+    endX = width + startX,
+    endY = height + startY;
+
+  [
+    [startX, startY],
+    [midX, startY],
+    [endX, startY],
+    [endX, midY],
+    [endX, endY],
+    [midX, endY],
+    [startX, endY],
+    [startX, midY]
+  ].forEach(function ([x, y]) {
+    drawCircle(canvas, x, y);
+  })
+
   ctx.restore();
 }
 
@@ -122,4 +150,14 @@ export function isNumInRange(src, min, max) {
   min = Math.min(min, max);
   max = Math.max(min, max);
   return src >= min && src <= max;
+}
+
+export function drawCircle(canvas, x, y, r, fillStyle = 'white') {
+  if (!canvas) throw new Error('need imageInfo obj');
+  const ctx = canvas.getContext('2d');
+  ctx.beginPath();
+  ctx.arc(x, y, ABOUT_NUM, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.fillStyle = fillStyle;
+  ctx.fill();
 }
