@@ -1,11 +1,17 @@
 import React, {useState, useRef, useEffect, useReducer} from "react";
 import Outer from "../../components/outer/outer";
 import FileInput from '../../components/fileInput/file-input';
+
+import SvgScreenShot from '../../../assert/svgScreenShot.svg';
+import SvgColorPicker from '../../../assert/svgColorPicker.svg';
 import Canvas from '../../components/canvas/canvas';
 import InfoCard from '../../components/infoCard/infoCard';
 import canvas from "../../components/canvas/canvas";
 import classes from "./index.module.css";
+import {OperateMenu} from "../../components/operateMenu/operateMenu";
 
+import '@alifd/next/dist/next.css';
+import {Message} from '@alifd/next';
 
 import {
   TOP,
@@ -18,17 +24,13 @@ import {
 
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
-ABOUT_NUM,
-
+  ABOUT_NUM,
+  SCALE,
   drawRect, getCursor, getLine,
 
-  throttle, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT
+  throttle, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, drawRegulateRect
 } from "../../function";
 
-
-const SCREEN_SHOT_LINE_STYLE = 'rgba(0,0,255,0.5)',
-  OPACITY_LINE_STYLE = 'rgba(0,0,0,0)',
-  NORMAL = 'rgba(0,0,0,1)';
 
 const {warn: w, log: l} = console;
 export default function Index(props) {
@@ -36,10 +38,9 @@ export default function Index(props) {
   const outerRef = useRef(null)
   const canvasRef = useRef(null);
 
-
   const [imageData, setImageData] = useState({data: []});
 
-  const [imageInfo, setImageInfo] = useState({});
+  const [imageInfo, setImageInfo] = useState(null);
   const [position, setPosition] = useState({x: 0, y: 0, colorArrayData: []})
 
   const [file, setFile] = useState(new File([], ''));
@@ -50,12 +51,12 @@ export default function Index(props) {
     let colorArrayData = [];
     if (imgData.data.length && offsetX >= 1 && offsetY >= 1 && offsetX * offsetY <= width * height) {
       let start = (offsetY - 1) * 4 * width + (offsetX - 1) * 4
-      console.warn(
-        imgData.data[start],
-        imgData.data[start + 1],
-        imgData.data[start + 2],
-        imgData.data[start + 3],
-      )
+      // w(
+      //   imgData.data[start],
+      //   imgData.data[start + 1],
+      //   imgData.data[start + 2],
+      //   imgData.data[start + 3],
+      // )
       colorArrayData = [
         imgData.data[start],
         imgData.data[start + 1],
@@ -69,12 +70,39 @@ export default function Index(props) {
       });
     }
   }, 0)
+  const [actionStatus, actionEmitter] = useState({
+    type: ACTION_TYPE.INIT, // todo
+    moment: ACTION_MOMENT.BEFORE_START, // STARTED
+    startX: 0,
+    startY: 0,
+    endX: 0,
+    endY: 0,
+    cursor: getCursor(),
+    line: '', // top bottom left right
+  })
+  useEffect(function (ev) {
 
+
+    canvasRef.current.width *= SCALE;
+    canvasRef.current.height *= SCALE;
+
+  }, [canvasRef])
 
   useEffect(function (ev) {
     getImageInfo(URL.createObjectURL(file)).then(function (imageInfo) {
       console.log(imageInfo)
+
       setImageInfo(imageInfo);
+      actionEmitter({
+        type: ACTION_TYPE.SCREEN_SHOT, // todo
+        moment: ACTION_MOMENT.BEFORE_START, // STARTED
+        startX: 0,
+        startY: 0,
+        endX: 0,
+        endY: 0,
+        cursor: getCursor(),
+        line: '', // top bottom left right
+      });
       renderImage(canvasRef.current, imageInfo);
 
     }).catch(function (err) {
@@ -115,12 +143,12 @@ export default function Index(props) {
   }
 
   function renderImage(canvas, imageInfo) {
+    if (!imageInfo) throw  new Error('no image file obj');
     let {w, h, image,} = imageInfo;
-    if (!image) throw new Error('no image file obj');
 
     if (!w || !h) {
-      w = 300;
-      h = 150;
+      w = canvas.width;
+      h = canvas.height;
     }
     if (!canvas) {
       canvas = createCanvas();
@@ -137,25 +165,6 @@ export default function Index(props) {
 
   }
 
-  function handleMouseMove(ev) {
-    calcCursorPosition(ev, imageData)
-  }
-
-
-  const [actionStatus, actionEmitter] = useState({
-    type: 'SCREEN_SHOT', // todo
-    moment: ACTION_MOMENT.BEFORE_START, // STARTED
-    startX: 0,
-    startY: 0,
-    endX: 0,
-    endY: 0,
-    cursor: getCursor(),
-    line: '', // top bottom left right
-  })
-
-  function handleClick(ev) {
-
-  }
 
   function handleMouseDown(ev) {
     const {nativeEvent: {offsetX, offsetY}} = ev;
@@ -200,11 +209,15 @@ export default function Index(props) {
 
 
     const {type, startX, startY, moment, line} = actionStatus;
+    if (type === ACTION_TYPE.PICK_COLOR) {
+      calcCursorPosition(ev, imageData)
+
+    }
     if (type === ACTION_TYPE.SCREEN_SHOT) {
       if ([ACTION_MOMENT.BEFORE_START].indexOf(moment) > -1) return;
       if (moment === ACTION_MOMENT.STARTED) {
 
-        drawRect(canvasRef.current, startX, startY, offsetX - startX, offsetY - startY);
+        drawRegulateRect(canvasRef.current, startX, startY, offsetX - startX, offsetY - startY, imageInfo);
 
         actionEmitter(
           {
@@ -244,30 +257,30 @@ export default function Index(props) {
       }
 
       if (line === TOP) {
-        drawRect(canvasRef.current, startX, offsetY, endX - startX, endY - offsetY);
+        drawRegulateRect(canvasRef.current, startX, offsetY, endX - startX, endY - offsetY, imageInfo);
       }
       if (line === BOTTOM) {
-        drawRect(canvasRef.current, startX, startY, endX - startX, offsetY - startY);
+        drawRegulateRect(canvasRef.current, startX, startY, endX - startX, offsetY - startY, imageInfo);
       }
       if (line === LEFT) {
-        drawRect(canvasRef.current, offsetX, startY, endX - offsetX, endY - startY);
+        drawRegulateRect(canvasRef.current, offsetX, startY, endX - offsetX, endY - startY, imageInfo);
       }
       if (line === RIGHT) {
-        drawRect(canvasRef.current, startX, startY, offsetX - startX, endY - startY);
+        drawRegulateRect(canvasRef.current, startX, startY, offsetX - startX, endY - startY, imageInfo);
       }
 
-      if (line === TOP_LEFT) drawRect(
-        canvasRef.current, offsetX, offsetY, endX - offsetX, endY - offsetY
+      if (line === TOP_LEFT) drawRegulateRect(
+        canvasRef.current, offsetX, offsetY, endX - offsetX, endY - offsetY, imageInfo
       );
 
-      if (line === TOP_RIGHT) drawRect(
-        canvasRef.current, startX, offsetY, offsetX - startX, endY - offsetY
+      if (line === TOP_RIGHT) drawRegulateRect(
+        canvasRef.current, startX, offsetY, offsetX - startX, endY - offsetY, imageInfo
       )
-      if (line === BOTTOM_LEFT) drawRect(
-        canvasRef.current, offsetX, startY, endX - offsetX, offsetY - startY
+      if (line === BOTTOM_LEFT) drawRegulateRect(
+        canvasRef.current, offsetX, startY, endX - offsetX, offsetY - startY, imageInfo
       )
-      if (line === BOTTOM_RIGHT) drawRect(
-        canvasRef.current, startX, startY, offsetX - startX, offsetY - startY
+      if (line === BOTTOM_RIGHT) drawRegulateRect(
+        canvasRef.current, startX, startY, offsetX - startX, offsetY - startY, imageInfo
       )
 
 
@@ -281,13 +294,7 @@ export default function Index(props) {
     if (type === ACTION_TYPE.SCREEN_SHOT) {
       if (moment === ACTION_MOMENT.STARTED) {
 
-        const ctx = canvasRef.current.getContext('2d');
-        ctx.clearRect(0, 0, imageInfo.w || CANVAS_WIDTH, imageInfo.h || CANVAS_HEIGHT);
-        if (imageData.data.length && Object.keys(imageInfo).length) {
-          ctx.drawImage(imageData, 0, 0, imageInfo.w, imageInfo.h)
-        }
-
-        ctx.strokeRect(startX, startY, offsetX - startX, offsetY - startY);
+        drawRegulateRect(canvasRef.current, startX, startY, offsetX - startX, offsetY - startY, imageInfo);
 
         if (imageData.data.length) {
           l(
@@ -345,11 +352,34 @@ export default function Index(props) {
           } else {
             endX = offsetX;
           }
+        } else if (line === TOP_LEFT) {
+          if (offsetX > endX && offsetY > endY) { // todo 是否需要并集？
+            [startX, startY, endX, endY] = [endX, endY, offsetX, offsetY];
+          } else {
+            [startX, startY] = [offsetX, offsetY];
+          }
+        } else if (line === TOP_RIGHT) {
+          if (offsetX < startX && offsetY < startY) {
+            [startX, startY, endX, endY] = [offsetX, endY, startX, offsetY];
+          } else {
+            [endX, startY] = [offsetX, offsetY];
+          }
+        } else if (line === BOTTOM_LEFT) {
+          if (offsetX > endX && offsetY < startY) {
+            [startX, startY, endX, endY] = [endX, offsetY, offsetX, startY];
+          } else {
+            [startX, endY] = [offsetX, offsetY]
+          }
+        } else if (line === BOTTOM_RIGHT) {
+          if (offsetX < startX && offsetY < startY) {
+            debugger
+            [startX, startY, endX, endY] = [offsetX, offsetY, startX, startY];
+          } else {
+            [endX, endY] = [offsetX, offsetY]
+          }
         }
 
-        else if (line === TOP_LEFT) {
-          // if ()
-        }
+        drawRegulateRect(canvasRef.current, startX, startY, endX - startX, endY - startY, imageInfo)
 
         actionEmitter({
           type: ACTION_TYPE.SCREEN_SHOT,
@@ -379,37 +409,65 @@ export default function Index(props) {
     }
   }
 
+  function handlePickColor(ev) {
+    if (!imageInfo) return Message.warning('请先选择图片');
+    actionEmitter({
+      ...actionStatus,
+      type: ACTION_TYPE.PICK_COLOR,
+      moment: ACTION_MOMENT.BEFORE_START
+    })
+  }
+
+  function handleClip(ev) {
+    if (!imageInfo) return Message.warning('请先选择图片');
+    actionEmitter({
+      ...actionStatus,
+      type: ACTION_TYPE.SCREEN_SHOT,
+      moment: ACTION_MOMENT.BEFORE_START
+    })
+  }
+
+
   return (
     <div className={
       [
-        classes.mainCon,
+        classes.con,
       ].join(' ')
     }
-         style={{
-           cursor: actionStatus.cursor
-         }}
+
     >
       <Outer ref={outerRef}/>
-      <FileInput handleInputChange={handleFileChange}/>
-      <div className={classes.sceneCon}>
-        <Canvas onClick={handleClick}
+      <OperateMenu>
+        <FileInput handleInputChange={handleFileChange}/>
 
-                onMouseMove={handleMouseMove}
-                onMouseDown={handleMouseDown}
-                onMouseUp={handleMouseUp}
-                ref={canvasRef}/>
-        {/*{actionStatus.type === 'SCREEN_SHOT' ? (*/}
-        {/*  <div*/}
-        {/*    style={layerStyle}*/}
-        {/*    className={classes.screenShotLayer}/>*/}
-        {/*) : null}*/}
+        <button onClick={handlePickColor}>
+          <img src={SvgColorPicker} alt="icon"/>
+          选择颜色
+        </button>
+        <button onClick={handleClip}>
+          <img src={SvgScreenShot} alt="icon"/>
+          图片裁剪
+        </button>
+      </OperateMenu>
+      <div className={classes.sceneCon}
+      >
+        <Canvas
+          style={{
+
+            cursor: actionStatus.cursor
+
+          }}
+          onMouseMove={handleMouseMove}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          ref={canvasRef}/>
       </div>
       <h2>{actionStatus.moment}</h2>
       <p>{actionStatus.startX}</p>
       <p>{actionStatus.startY}</p>
       <p>{actionStatus.endX}</p>
       <p>{actionStatus.endY}</p>
-      <InfoCard position={position}/>
+      {actionStatus.type === ACTION_TYPE.PICK_COLOR ? <InfoCard position={position}/> : null}
     </div>
   )
 }

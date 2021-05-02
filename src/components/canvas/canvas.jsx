@@ -2,7 +2,9 @@ import React, {forwardRef, useState} from "react";
 import classes from "./canvas.module.css";
 
 export default forwardRef(function Canvas(props, ref) {
+
   const {
+    style,
     onMouseMove,
     onMouseDown,
     onMouseUp
@@ -14,6 +16,7 @@ export default forwardRef(function Canvas(props, ref) {
             onMouseMove={onMouseMove}
             onMouseDown={onMouseDown}
             onMouseUp={onMouseUp}
+            style={style}
     />
 
   )
