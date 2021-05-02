@@ -1,7 +1,7 @@
 import React from "react";
 import classes from "./operateMenu.module.css";
 
-export function OperateMenu(props) {
+export default function OperateMenu(props) {
   const {style} = props;
   const child = props.children.length > 1 ? props.children : [props.children]
   return (

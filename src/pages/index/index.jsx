@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect, useReducer} from "react";
+import React, {useState, useRef, useEffect} from "react";
 import Outer from "../../components/outer/outer";
 import FileInput from '../../components/fileInput/file-input';
 
@@ -8,10 +8,11 @@ import Canvas from '../../components/canvas/canvas';
 import InfoCard from '../../components/infoCard/infoCard';
 import canvas from "../../components/canvas/canvas";
 import classes from "./index.module.css";
-import {OperateMenu} from "../../components/operateMenu/operateMenu";
+import OperateMenu from "../../components/operateMenu/operateMenu";
+import OperateBar from '../../components/operateBar/operateBar';
 
 import '@alifd/next/dist/next.css';
-import {Message} from '@alifd/next';
+import {Message, Button} from '@alifd/next';
 
 import {
   TOP,
@@ -28,8 +29,10 @@ import {
   SCALE,
   drawRect, getCursor, getLine,
 
+
   throttle, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, drawRegulateRect
 } from "../../function";
+import {act} from "react-dom/test-utils";
 
 
 const {warn: w, log: l} = console;
@@ -38,19 +41,23 @@ export default function Index(props) {
   const outerRef = useRef(null)
   const canvasRef = useRef(null);
 
-  const [imageData, setImageData] = useState({data: []});
+  // const [imageData, setImageData] = useState({data: []});
 
   const [imageInfo, setImageInfo] = useState(null);
   const [position, setPosition] = useState({x: 0, y: 0, colorArrayData: []})
 
+  const [opBarStyle, setOpBarStyle] = useState(null);
+
   const [file, setFile] = useState(new File([], ''));
 
-  const calcCursorPosition = throttle(function (ev, imgData) {
+
+  const calcCursorPosition = throttle(function (ev, imageInfo) {
     const {nativeEvent: {offsetX, offsetY}, pageX, pageY} = ev;
-    const {width, height} = imageData;
+    const {w, h, imageData} = imageInfo;
+    if (!imageData) return Message.warning('need imageData');
     let colorArrayData = [];
-    if (imgData.data.length && offsetX >= 1 && offsetY >= 1 && offsetX * offsetY <= width * height) {
-      let start = (offsetY - 1) * 4 * width + (offsetX - 1) * 4
+    if (offsetX >= 1 && offsetY >= 1 && offsetX * offsetY <= w * h) {
+      let start = (offsetY - 1) * 4 * w + (offsetX - 1) * 4;
       // w(
       //   imgData.data[start],
       //   imgData.data[start + 1],
@@ -58,10 +65,10 @@ export default function Index(props) {
       //   imgData.data[start + 3],
       // )
       colorArrayData = [
-        imgData.data[start],
-        imgData.data[start + 1],
-        imgData.data[start + 2],
-        imgData.data[start + 3],
+        imageData.data[start],
+        imageData.data[start + 1],
+        imageData.data[start + 2],
+        imageData.data[start + 3],
       ]
       setPosition({
         x: pageX + 15,
@@ -92,6 +99,7 @@ export default function Index(props) {
     getImageInfo(URL.createObjectURL(file)).then(function (imageInfo) {
       console.log(imageInfo)
 
+      // todo 这里太乱了，处理下
       setImageInfo(imageInfo);
       actionEmitter({
         type: ACTION_TYPE.SCREEN_SHOT, // todo
@@ -158,9 +166,11 @@ export default function Index(props) {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(image, 0, 0, w, h);
     // todo
-    const imgData = ctx.getImageData(0, 0, w, h);
-    setImageData(
-      imgData
+    const imageData = ctx.getImageData(0, 0, w, h);
+    setImageInfo({
+        ...imageInfo,
+        imageData
+      }
     );
 
   }
@@ -191,7 +201,7 @@ export default function Index(props) {
         // 判断是哪条边
         const line = getLine(startX, startY, endX, endY, offsetX, offsetY);
         if (line) w(line);
-        const moment = line ? ACTION_MOMENT.REGULATE : ACTION_MOMENT.END;
+        const moment = line ? ACTION_MOMENT.REGULATING : ACTION_MOMENT.END;
         actionEmitter({
           ...actionStatus,
           moment,
@@ -209,10 +219,11 @@ export default function Index(props) {
 
 
     const {type, startX, startY, moment, line} = actionStatus;
-    if (type === ACTION_TYPE.PICK_COLOR) {
-      calcCursorPosition(ev, imageData)
 
+    if (type === ACTION_TYPE.PICK_COLOR) {
+      calcCursorPosition(ev, imageInfo)
     }
+
     if (type === ACTION_TYPE.SCREEN_SHOT) {
       if ([ACTION_MOMENT.BEFORE_START].indexOf(moment) > -1) return;
       if (moment === ACTION_MOMENT.STARTED) {
@@ -227,81 +238,83 @@ export default function Index(props) {
           }
         )
       }
+      if (moment === ACTION_MOMENT.END) {
+        const {endX, endY} = actionStatus;
+
+        const line = getLine(startX, startY, endX, endY, offsetX, offsetY);
+        if (line) w(line)
+        actionEmitter({
+          ...actionStatus,
+          cursor: getCursor(line)
+        })
+      }
+
+      if (moment === ACTION_MOMENT.REGULATING) {
+
+        setOpBarStyle({
+          ...opBarStyle,
+          display: 'none',
+        })
+
+        // 这个状态下才会有endX, endY
+        const {endX, endY} = actionStatus;
+        if (!endX || !endY && endX !== 0 && endY !== 0) throw new Error('当前不是REGULATE');
+
+
+        if (offsetX <= 0 || offsetY <= 0 || offsetX >= width || offsetY >= height) {
+          let nEv = {};
+          if (offsetX <= 0) nEv.offsetX = ABOUT_NUM;
+          if (offsetY <= 0) nEv.offsetY = ABOUT_NUM;
+          if (offsetX >= width) nEv.offsetX = width - ABOUT_NUM;
+          if (offsetY >= height) nEv.offsetY = height - ABOUT_NUM;
+          return handleMouseUp({...ev, nativeEvent: nEv});
+        }
+
+
+        if (line === TOP) {
+          drawRegulateRect(canvasRef.current, startX, offsetY, endX - startX, endY - offsetY, imageInfo);
+        }
+        if (line === BOTTOM) {
+          drawRegulateRect(canvasRef.current, startX, startY, endX - startX, offsetY - startY, imageInfo);
+        }
+        if (line === LEFT) {
+          drawRegulateRect(canvasRef.current, offsetX, startY, endX - offsetX, endY - startY, imageInfo);
+        }
+        if (line === RIGHT) {
+          drawRegulateRect(canvasRef.current, startX, startY, offsetX - startX, endY - startY, imageInfo);
+        }
+
+        if (line === TOP_LEFT) drawRegulateRect(
+          canvasRef.current, offsetX, offsetY, endX - offsetX, endY - offsetY, imageInfo
+        );
+
+        if (line === TOP_RIGHT) drawRegulateRect(
+          canvasRef.current, startX, offsetY, offsetX - startX, endY - offsetY, imageInfo
+        )
+        if (line === BOTTOM_LEFT) drawRegulateRect(
+          canvasRef.current, offsetX, startY, endX - offsetX, offsetY - startY, imageInfo
+        )
+        if (line === BOTTOM_RIGHT) drawRegulateRect(
+          canvasRef.current, startX, startY, offsetX - startX, offsetY - startY, imageInfo
+        )
+
+
+      }
+
     }
 
-    if (actionStatus.moment === ACTION_MOMENT.END) {
-      const {endX, endY} = actionStatus;
-
-
-      const line = getLine(startX, startY, endX, endY, offsetX, offsetY);
-      if (line) w(line)
-      actionEmitter({
-        ...actionStatus,
-        cursor: getCursor(line)
-      })
-    }
-
-    if (actionStatus.moment === ACTION_MOMENT.REGULATE) {
-      // 这个状态下才会有endX, endY
-      const {endX, endY} = actionStatus;
-      if (!endX || !endY && endX !== 0 && endY !== 0) throw new Error('当前不是REGULATE');
-
-
-      if (offsetX <= 0 || offsetY <= 0 || offsetX >= width || offsetY >= height) {
-        let nEv = {};
-        if (offsetX <= 0) nEv.offsetX = ABOUT_NUM;
-        if (offsetY <= 0) nEv.offsetY = ABOUT_NUM;
-        if (offsetX >= width) nEv.offsetX = width - ABOUT_NUM;
-        if (offsetY >= height) nEv.offsetY = height - ABOUT_NUM;
-        return handleMouseUp({...ev, nativeEvent: nEv});
-      }
-
-      if (line === TOP) {
-        drawRegulateRect(canvasRef.current, startX, offsetY, endX - startX, endY - offsetY, imageInfo);
-      }
-      if (line === BOTTOM) {
-        drawRegulateRect(canvasRef.current, startX, startY, endX - startX, offsetY - startY, imageInfo);
-      }
-      if (line === LEFT) {
-        drawRegulateRect(canvasRef.current, offsetX, startY, endX - offsetX, endY - startY, imageInfo);
-      }
-      if (line === RIGHT) {
-        drawRegulateRect(canvasRef.current, startX, startY, offsetX - startX, endY - startY, imageInfo);
-      }
-
-      if (line === TOP_LEFT) drawRegulateRect(
-        canvasRef.current, offsetX, offsetY, endX - offsetX, endY - offsetY, imageInfo
-      );
-
-      if (line === TOP_RIGHT) drawRegulateRect(
-        canvasRef.current, startX, offsetY, offsetX - startX, endY - offsetY, imageInfo
-      )
-      if (line === BOTTOM_LEFT) drawRegulateRect(
-        canvasRef.current, offsetX, startY, endX - offsetX, offsetY - startY, imageInfo
-      )
-      if (line === BOTTOM_RIGHT) drawRegulateRect(
-        canvasRef.current, startX, startY, offsetX - startX, offsetY - startY, imageInfo
-      )
-
-
-    }
 
   }
 
   function handleMouseUp(ev) {
-    const {nativeEvent: {offsetX, offsetY}} = ev;
-    let {type, startX, startY, moment} = actionStatus;
+    const {nativeEvent: {offsetX, offsetY}, pageX, pageY} = ev;
+    let {type, startX, startY, moment, endX, endY} = actionStatus;
     if (type === ACTION_TYPE.SCREEN_SHOT) {
+
+      if (moment === ACTION_MOMENT.END) return;
+
       if (moment === ACTION_MOMENT.STARTED) {
-
         drawRegulateRect(canvasRef.current, startX, startY, offsetX - startX, offsetY - startY, imageInfo);
-
-        if (imageData.data.length) {
-          l(
-            canvasRef.current.getContext('2d').getImageData(actionStatus.startX, actionStatus.startY, actionStatus.endX - actionStatus.startX, actionStatus.endY - actionStatus.startY)
-          )
-        }
-
         actionEmitter(function (prevStatus) {
           return {
             ...prevStatus,
@@ -312,18 +325,16 @@ export default function Index(props) {
             cursor: getCursor()
           }
         })
-
       }
-      if (actionStatus.moment === ACTION_MOMENT.REGULATE) {
+
+      if (actionStatus.moment === ACTION_MOMENT.REGULATING) {
         let {endX, endY} = actionStatus;
         if (!endX || !endY && endX !== 0 && endY !== 0) throw new Error('当前不是REGULATE');
         const {line} = actionStatus;
         if (!line) return;
 
-        // todo...
-        // top: sY 变
         if (line === TOP) {
-          if (offsetY > endY) { // 上下边互换 todo >=
+          if (offsetY > endY) {
             [startY, endY] = [endY, offsetY];
           } else {
             startY = offsetY;
@@ -359,7 +370,7 @@ export default function Index(props) {
             [startX, startY] = [offsetX, offsetY];
           }
         } else if (line === TOP_RIGHT) {
-          if (offsetX < startX && offsetY < startY) {
+          if (offsetX < startX && offsetY > endY) {
             [startX, startY, endX, endY] = [offsetX, endY, startX, offsetY];
           } else {
             [endX, startY] = [offsetX, offsetY];
@@ -372,7 +383,6 @@ export default function Index(props) {
           }
         } else if (line === BOTTOM_RIGHT) {
           if (offsetX < startX && offsetY < startY) {
-            debugger
             [startX, startY, endX, endY] = [offsetX, offsetY, startX, startY];
           } else {
             [endX, endY] = [offsetX, offsetY]
@@ -381,6 +391,8 @@ export default function Index(props) {
 
         drawRegulateRect(canvasRef.current, startX, startY, endX - startX, endY - startY, imageInfo)
 
+
+        w(imageInfo.imageData);
         actionEmitter({
           type: ACTION_TYPE.SCREEN_SHOT,
           moment: ACTION_MOMENT.END,
@@ -427,6 +439,42 @@ export default function Index(props) {
     })
   }
 
+  function handleCopy(ev) {
+    if (!imageInfo) return Message.warning('请先选择图片');
+    const temCanvas = document.createElement('canvas');
+    outerRef.current.appendChild(temCanvas);
+
+    const {startX, startY, endX, endY} = actionStatus;
+
+    temCanvas.width = endX - startX;
+    temCanvas.height = endY - startY;
+    const temCtx = temCanvas.getContext('2d');
+
+    temCtx.drawImage(imageInfo.image, startX, startY, endX - startX, endY - startY, 0, 0, endX - startX, endY - startY);
+
+    temCanvas.toBlob(function (blob) {
+      const url = URL.createObjectURL(blob);
+      const downLink = document.createElement('a');
+      downLink.href = url;
+      downLink.download = 'test.jpg';
+      downLink.click();
+    }, 'image/jpeg', 1);
+  }
+
+  let operateBarStyle = {};
+  Object.assign(operateBarStyle, {
+    display: 'block',
+    x: actionStatus.startX,
+    y: actionStatus.endY + canvasRef.current?.offsetTop
+  })
+
+  function handleEditRect(ev) {
+
+  }
+
+  function handleEditText(ev) {
+
+  }
 
   return (
     <div className={
@@ -434,7 +482,7 @@ export default function Index(props) {
         classes.con,
       ].join(' ')
     }
-
+         onCopy={handleCopy}
     >
       <Outer ref={outerRef}/>
       <OperateMenu>
@@ -453,9 +501,7 @@ export default function Index(props) {
       >
         <Canvas
           style={{
-
             cursor: actionStatus.cursor
-
           }}
           onMouseMove={handleMouseMove}
           onMouseDown={handleMouseDown}
@@ -463,11 +509,17 @@ export default function Index(props) {
           ref={canvasRef}/>
       </div>
       <h2>{actionStatus.moment}</h2>
+      <h2>{JSON.stringify(operateBarStyle)}</h2>
       <p>{actionStatus.startX}</p>
       <p>{actionStatus.startY}</p>
       <p>{actionStatus.endX}</p>
       <p>{actionStatus.endY}</p>
       {actionStatus.type === ACTION_TYPE.PICK_COLOR ? <InfoCard position={position}/> : null}
+      {actionStatus.type === ACTION_TYPE.SCREEN_SHOT ?
+        <OperateBar style={operateBarStyle}
+                    onEditRect={handleEditRect}
+                    onEditText={handleEditText}
+        /> : null}
     </div>
   )
 }

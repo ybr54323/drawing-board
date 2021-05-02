@@ -22,7 +22,10 @@ export const
     BEFORE_START: 'BEFORE_START', // 未开始
     STARTED: 'STARTED', // 进行中
     END: 'END', // 结束
-    REGULATE: 'REGULATE' // 调整范围
+    REGULATE: 'REGULATE', // 调整范围
+    REGULATED: 'REGULATED', // 调整完
+    REGULATING: 'REGULATING', // 调整中
+    EDITING: 'EDITING', // 编辑
   },
   CANVAS_WIDTH = 300, // canvas width
   CANVAS_HEIGHT = 150, // canvas height
