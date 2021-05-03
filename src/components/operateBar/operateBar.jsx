@@ -6,6 +6,7 @@ import svgText from '../../../assert/svgText.svg';
 export default function Operate(props) {
   const {
     style: {x, y, display},
+    onEditRect,
 
   } = props;
   const style = {
@@ -17,7 +18,7 @@ export default function Operate(props) {
   return (
     <section className={classes.con}
              style={style}>
-      <div className={classes.btn}>
+      <div onClick={onEditRect} className={classes.btn}>
         <svg t="1619955875785" className="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"
              p-id="3605" width="16" height="16">
           <path
