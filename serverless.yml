@@ -1,0 +1,14 @@
+component: website
+name: website-iKN7HdlHQ
+org: '1258255065'
+app: test
+stage: dev
+inputs:
+  src:
+    src: ./
+    index: index.html
+    error: index.html
+  region: ap-guangzhou
+  bucketName: my-bucket
+  protocol: https
+  isAutoCiDeploy: false

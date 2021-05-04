@@ -15,6 +15,12 @@ import '@alifd/next/dist/next.css';
 import {Message, Button, Menu, Icon} from '@alifd/next';
 import {Notification, NumberPicker} from '@alifd/next';
 
+let {warn: w, log: l} = console;
+if (import.meta.env.PROD) {
+  w = function (){};
+  l = function (){};
+}
+
 let duration = 4500;
 const openNotification = () => {
   const args = {
@@ -27,23 +33,14 @@ const openNotification = () => {
 };
 
 
-const {Divider} = Menu;
-
 import {
-  TOP,
-  BOTTOM,
-  LEFT,
-  RIGHT,
 
   ACTION_TYPE,
   ACTION_MOMENT,
 
-  CANVAS_WIDTH,
-  CANVAS_HEIGHT,
   ABOUT_NUM,
   SCALE,
   getCursor,
-  getLine,
 
 
   throttle,
@@ -54,8 +51,6 @@ import {
   drawScene
 } from "../../function";
 
-
-const {warn: w, log: l} = console;
 export default function Index(props) {
 
   const outerRef = useRef(null)
@@ -407,10 +402,10 @@ export default function Index(props) {
     const {type} = actionStatus;
     if (type === ACTION_TYPE.INIT) return;
     if (type === ACTION_TYPE.PICK_COLOR) {
-      Navigator.clipboard.writeText("test").then(function() {
+      Navigator.clipboard.writeText("test").then(function () {
         w('success')
         /* success */
-      }, function() {
+      }, function () {
         w('error');
         /* failure */
       });
