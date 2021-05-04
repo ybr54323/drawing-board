@@ -30,7 +30,7 @@ import {
   drawRect, getCursor, getLine,
 
 
-  throttle, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, drawRegulateRect, Rect, isNumInRange, EditRect
+  throttle, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, drawRegulateRect, Rect, isNumInRange, EditRect, getImageInfo
 } from "../../function";
 
 
@@ -81,31 +81,24 @@ export default function Index(props) {
 
 
   useEffect(function (ev) {
-
     canvasRef.current.width *= SCALE;
     canvasRef.current.height *= SCALE;
-
   }, [canvasRef])
 
   useEffect(function (ev) {
-    getImageInfo(URL.createObjectURL(file)).then(function (imageInfo) {
-
+    getImageInfo(URL.createObjectURL(file), outerRef.current).then(function (imageInfo) {
       // todo 这里太乱了，处理下
       actionEmitter({
         type: ACTION_TYPE.INIT,
         moment: ACTION_MOMENT.BEFORE_START,
         cursor: getCursor(),
-        line: '',
       });
       setImageInfo({
         ...imageInfo,
         imageData: renderImageAndGetImageData(canvasRef.current, imageInfo)
       });
-
     }).catch(function (err) {
-
     })
-
   }, [file])
 
 
@@ -113,24 +106,6 @@ export default function Index(props) {
     if (ev.target.files.length === 0) return;
     const [file] = ev.target.files;
     setFile(file);
-  }
-
-  function getImageInfo(blobUrl) {
-    return new Promise(((resolve, reject) => {
-      if (!blobUrl) reject()
-      const image = new Image();
-      image.src = blobUrl
-      outerRef.current.appendChild(image);
-      image.onload = function (ev) {
-        resolve({
-          w: this.width,
-          h: this.height,
-          image: this,
-          event: ev,
-        })
-      }
-      image.onerror = reject;
-    }))
   }
 
 
@@ -145,8 +120,12 @@ export default function Index(props) {
     return ctx.getImageData(0, 0, w, h);
   }
 
+  function isInScreenShotRect(offsetX, offsetY) {
+    return isNumInRange(offsetX, screenShotRect.getStartX(), screenShotRect.getEndX()) &&
+      isNumInRange(offsetY, screenShotRect.getStartY(), screenShotRect.getEndY())
+  }
 
-  function handleMouseDown(ev) {
+  const handleMouseDown = throttle(function (ev) {
     const {nativeEvent: {offsetX, offsetY}} = ev;
     const {type, moment} = actionStatus;
     if (type === ACTION_TYPE.SCREEN_SHOT) {
@@ -182,7 +161,7 @@ export default function Index(props) {
         }
 
         actionEmitter({
-          ...actionStatus,
+          type: ACTION_TYPE.EDITING_RECT,
           moment: ACTION_MOMENT.STARTED,
           cursor: getCursor(),
         })
@@ -199,8 +178,7 @@ export default function Index(props) {
       }
       if (moment === ACTION_MOMENT.END) {
         // 判断是否在screenShot范围内
-        if (!isNumInRange(offsetX, screenShotRect.getStartX(), screenShotRect.getEndX()) ||
-          !isNumInRange(offsetY, screenShotRect.getStartY(), screenShotRect.getEndY())) {
+        if (!isInScreenShotRect(offsetX, offsetY)) {
           return l('范围外');
         }
         let line, curEditRect;
@@ -224,20 +202,15 @@ export default function Index(props) {
 
 
     }
-  }
+  }, 100);
 
-  function isInScreenShotRect(offsetX, offsetY) {
-    return isNumInRange(offsetX, screenShotRect.getStartX(), screenShotRect.getEndX()) &&
-      isNumInRange(offsetY, screenShotRect.getStartY(), screenShotRect.getEndY())
-  }
 
-  function handleMouseMove(ev) {
+  const handleMouseMove = throttle(function (ev) {
     const {nativeEvent: {offsetX, offsetY}} = ev;
     const {width, height} = canvasRef.current;
     const {type, moment} = actionStatus;
 
     if (type === ACTION_TYPE.PICK_COLOR) {
-
       calcCursorPosition(ev, imageInfo)
     }
 
@@ -286,16 +259,19 @@ export default function Index(props) {
           return l('范围外');
         }
         const curEditRect = editRectList[editRectList.length - 1];
-        if (!curEditRect) return l('no curEditRect');
-        screenShotRect.draw(screenShotRect.getStartX(), screenShotRect.getStartY(), screenShotRect.getWidth(), screenShotRect.getHeight(), imageInfo, [
-          curEditRect.mouseMoveDraw.bind(curEditRect, offsetX, offsetY, imageInfo),
-        ])
+
+        screenShotRect.draw(screenShotRect.getStartX(), screenShotRect.getStartY(), screenShotRect.getWidth(), screenShotRect.getHeight(), imageInfo,
+          editRectList.slice(0, editRectList.length - 1).map(function (editRect) {
+            return editRect.mouseUpDraw.bind(editRect, imageInfo);
+          }).concat([curEditRect.mouseMoveDraw.bind(curEditRect, offsetX, offsetY, imageInfo),
+          ])
+        )
       }
     }
 
-  }
+  }, 30)
 
-  function handleMouseUp(ev) {
+  const handleMouseUp = throttle(function (ev) {
     const {nativeEvent: {offsetX, offsetY}} = ev;
     let {type, moment} = actionStatus;
     if (type === ACTION_TYPE.SCREEN_SHOT) {
@@ -303,6 +279,7 @@ export default function Index(props) {
       if (moment === ACTION_MOMENT.END) return;
 
       if (moment === ACTION_MOMENT.STARTED) { // 首次定下截屏范围
+        // todo 感觉太垃圾
         const [startX, startY] = [
           screenShotRect.getStartX(),
           screenShotRect.getStartY()
@@ -339,8 +316,24 @@ export default function Index(props) {
       if (!isInScreenShotRect(offsetX, offsetY)) {
         return l('范围外');
       }
+      const curEditRect = editRectList[editRectList.length - 1];
+      if (!curEditRect) return l('no curEditRect');
+
+      curEditRect.setEndX(offsetX);
+      curEditRect.setEndY(offsetY);
+      screenShotRect.draw(screenShotRect.getStartX(), screenShotRect.getStartY(), screenShotRect.getWidth(), screenShotRect.getHeight(), imageInfo,
+        editRectList.map(function (editRect) {
+          return editRect.mouseUpDraw.bind(editRect, imageInfo);
+        })
+      )
+
+      actionEmitter({
+        type: ACTION_TYPE.EDITING_RECT,
+        moment: ACTION_MOMENT.BEFORE_START,
+        cursor: getCursor()
+      })
     }
-  }
+  }, 0);
 
 
   function handlePickColor(ev) {
@@ -368,11 +361,32 @@ export default function Index(props) {
     if (!screenShotRect) return;
     // 进入截屏模式
     actionEmitter({
-      ...actionStatus,
       type: ACTION_TYPE.SCREEN_SHOT,
       moment: ACTION_MOMENT.BEFORE_START,
+      cursor: getCursor(),
     })
   }, [screenShotRect])
+
+
+  // 处理样式
+  let operateBarStyle = {};
+  const {type, moment} = actionStatus;
+  // 显示编辑栏
+  const operateBarVisibility = (type === ACTION_TYPE.SCREEN_SHOT && (
+      [ACTION_MOMENT.BEFORE_START, ACTION_MOMENT.STARTED].indexOf(moment) === -1
+    )) ||
+    (
+      type === ACTION_TYPE.EDITING_RECT
+    )
+  const isEditingRect = type === ACTION_TYPE.EDITING_RECT &&
+    moment === ACTION_MOMENT.BEFORE_START;
+
+  Object.assign(operateBarStyle, {
+    display: operateBarVisibility ? 'block' : 'none',
+    x: screenShotRect?.startX,
+    y: screenShotRect?.endY + screenShotRect?.canvas?.offsetTop,
+    isEditingRect,
+  })
 
   function handleCopy(ev) {
     if (!imageInfo) return Message.warning('请先选择图片');
@@ -394,7 +408,7 @@ export default function Index(props) {
       0,
       screenShotRect.getWidth(),
       screenShotRect.getHeight());
-
+    // todo 其他几个矩形
     temCanvas.toBlob(function (blob) {
       const url = URL.createObjectURL(blob);
       const downLink = document.createElement('a');
@@ -404,23 +418,21 @@ export default function Index(props) {
     }, 'image/jpeg', 1);
   }
 
-  let operateBarStyle = {};
-  if (actionStatus.moment === ACTION_MOMENT.END) {
-    Object.assign(operateBarStyle, {
-      display: 'block',
-      x: screenShotRect.startX,
-      y: screenShotRect.endY + screenShotRect?.canvas?.offsetTop
-    })
-  }
-
-
   function handleEditRect(ev) {
+    let {type, moment} = actionStatus;
+    type = type === ACTION_TYPE.SCREEN_SHOT ? ACTION_TYPE.EDITING_RECT : ACTION_TYPE.SCREEN_SHOT;
+
+    if (type === ACTION_TYPE.EDITING_RECT) {
+      moment = moment === ACTION_MOMENT.BEFORE_START ? ACTION_MOMENT.END : ACTION_MOMENT.BEFORE_START;
+    } else {
+      moment = ACTION_MOMENT.END;
+    }
+    // 清空
+    if (type === ACTION_TYPE.SCREEN_SHOT) setEditRectList([]);
     actionEmitter({
-      ...actionStatus,
-      type: ACTION_TYPE.EDITING_RECT,
-      moment: ACTION_MOMENT.BEFORE_START,
+      type,
+      moment,
       cursor: getCursor(),
-      line: '',
     })
   }
 
@@ -460,15 +472,16 @@ export default function Index(props) {
           onMouseUp={handleMouseUp}
           ref={canvasRef}/>
       </div>
+      <h2>{JSON.stringify(operateBarStyle)}</h2>
       <h2>{actionStatus.type}</h2>
       <h2>{actionStatus.moment}</h2>
       {/*<h2>{JSON.stringify(operateBarStyle)}</h2>*/}
-      <h3>{screenShotRect?.startX}</h3>
-      <h3>{screenShotRect?.startY}</h3>
-      <h3>{screenShotRect?.endX}</h3>
-      <h3>{screenShotRect?.endY}</h3>
+      {/*<h3>{screenShotRect?.startX}</h3>*/}
+      {/*<h3>{screenShotRect?.startY}</h3>*/}
+      {/*<h3>{screenShotRect?.endX}</h3>*/}
+      {/*<h3>{screenShotRect?.endY}</h3>*/}
       {/*{actionStatus.type === ACTION_TYPE.PICK_COLOR ? <InfoCard position={position}/> : null}*/}
-      {actionStatus.type === ACTION_TYPE.SCREEN_SHOT ?
+      {actionStatus.type === ACTION_TYPE.SCREEN_SHOT || actionStatus.type === ACTION_TYPE.EDITING_RECT ?
         <OperateBar style={operateBarStyle}
                     onEditRect={handleEditRect}
                     onEditText={handleEditText}

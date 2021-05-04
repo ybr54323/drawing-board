@@ -23,7 +23,6 @@ export const
     STARTED: 'STARTED', // 进行中
     END: 'END', // 结束
     REGULATING: 'REGULATING', // 调整中
-    EDITING: 'EDITING', // 编辑中
 
   },
   CANVAS_WIDTH = 300, // canvas width
@@ -154,6 +153,24 @@ export function drawCircle(canvas, x, y, r, fillStyle = 'white') {
   ctx.fillStyle = fillStyle;
   ctx.fill();
 }
+export function getImageInfo(blobUrl, conNode) {
+  return new Promise(((resolve, reject) => {
+    if (!blobUrl) reject()
+    const image = new Image();
+    image.src = blobUrl
+    conNode.appendChild(image);
+    image.onload = function (ev) {
+      resolve({
+        w: this.width,
+        h: this.height,
+        image: this,
+        event: ev,
+      })
+    }
+    image.onerror = reject;
+  }))
+}
+
 
 export class Rect {
   constructor({
@@ -373,7 +390,6 @@ export class Rect {
     }
     ctx.putImageData(imageData, 0, 0);
     ctx.drawImage(imageInfo.image, startX, startY, width, height, startX, startY, width, height);
-    console.warn(startX, startY, width, height, startX, startY, width, height)
     drawCbArr.forEach(function (cb) {
       cb()
     });
@@ -457,6 +473,10 @@ export class EditRect extends Rect {
 
   getStrokeStyle() {
     return this.strokeStyle;
+  }
+
+  mouseUpDraw(imageInfo) {
+    this.draw(this.startX, this.startY, this.getWidth(), this.getHeight(), imageInfo);
   }
 
   draw(startX, startY, width, height, imageInfo) {
