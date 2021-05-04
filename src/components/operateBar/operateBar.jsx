@@ -9,8 +9,9 @@ export default function Operate(props) {
       isEditingText = false,
     },
     onEditRect,
+    onEditText,
   } = props;
-  console.log(isEditingRect)
+
   const style = {
     transform: 'translate3d(0,0,0)',
     top: y + 'px',
@@ -29,7 +30,7 @@ export default function Operate(props) {
             p-id="3606" fill={isEditingRect ? '#1296db' : '#fff'}/>
         </svg>
       </div>
-      <div className={classes.btn}>
+      <div onClick={onEditText} className={classes.btn}>
         <svg t="1619955335199" className="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"
              p-id="3406" width="16" height="16">
           <path

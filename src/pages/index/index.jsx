@@ -12,7 +12,22 @@ import OperateMenu from "../../components/operateMenu/operateMenu";
 import OperateBar from '../../components/operateBar/operateBar';
 
 import '@alifd/next/dist/next.css';
-import {Message, Button} from '@alifd/next';
+import {Message, Button, Menu, Icon} from '@alifd/next';
+import {Notification, NumberPicker} from '@alifd/next';
+
+let duration = 4500;
+const openNotification = () => {
+  const args = {
+    title: "提示",
+    content:
+      "ctrl + c 可以复制色号",
+    duration
+  };
+  Notification.open(args);
+};
+
+
+const {Divider} = Menu;
 
 import {
   TOP,
@@ -27,10 +42,16 @@ import {
   CANVAS_HEIGHT,
   ABOUT_NUM,
   SCALE,
-  drawRect, getCursor, getLine,
+  getCursor,
+  getLine,
 
 
-  throttle, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, drawRegulateRect, Rect, isNumInRange, EditRect, getImageInfo
+  throttle,
+  Rect,
+  isNumInRange,
+  EditRect,
+  getImageInfo,
+  drawScene
 } from "../../function";
 
 
@@ -279,20 +300,13 @@ export default function Index(props) {
       if (moment === ACTION_MOMENT.END) return;
 
       if (moment === ACTION_MOMENT.STARTED) { // 首次定下截屏范围
-        // todo 感觉太垃圾
-        const [startX, startY] = [
-          screenShotRect.getStartX(),
-          screenShotRect.getStartY()
-        ]
-        drawRegulateRect(canvasRef.current, startX, startY, offsetX - startX, offsetY - startY, imageInfo);
 
         screenShotRect.setEndX(offsetX);
         screenShotRect.setEndY(offsetY);
-
+        screenShotRect.mouseUpDraw(imageInfo);
         actionEmitter({
-          ...actionStatus,
+          type: ACTION_TYPE.SCREEN_SHOT,
           moment: ACTION_MOMENT.END,
-          line: '',
           cursor: getCursor()
         })
       }
@@ -307,7 +321,6 @@ export default function Index(props) {
           type: ACTION_TYPE.SCREEN_SHOT,
           moment: ACTION_MOMENT.END,
           cursor: getCursor(),
-          line: ''
         })
       }
 
@@ -343,6 +356,7 @@ export default function Index(props) {
       type: ACTION_TYPE.PICK_COLOR,
       moment: ACTION_MOMENT.BEFORE_START
     })
+    openNotification('color');
   }
 
   function handleClip() {
@@ -383,13 +397,25 @@ export default function Index(props) {
 
   Object.assign(operateBarStyle, {
     display: operateBarVisibility ? 'block' : 'none',
-    x: screenShotRect?.startX,
+    x: screenShotRect?.startX + screenShotRect?.canvas?.offsetLeft,
     y: screenShotRect?.endY + screenShotRect?.canvas?.offsetTop,
     isEditingRect,
   })
 
   function handleCopy(ev) {
     if (!imageInfo) return Message.warning('请先选择图片');
+    const {type} = actionStatus;
+    if (type === ACTION_TYPE.INIT) return;
+    if (type === ACTION_TYPE.PICK_COLOR) {
+      Navigator.clipboard.writeText("test").then(function() {
+        w('success')
+        /* success */
+      }, function() {
+        w('error');
+        /* failure */
+      });
+      return;
+    }
     const temCanvas = document.createElement('canvas');
     outerRef.current.appendChild(temCanvas);
 
@@ -437,7 +463,20 @@ export default function Index(props) {
   }
 
   function handleEditText(ev) {
+    Message.notice('todo')
+  }
 
+  function handleCancel(ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    w('gg')
+    actionEmitter({
+      type: ACTION_TYPE.SCREEN_SHOT,
+      moment: ACTION_MOMENT.BEFORE_START,
+      cursor: getCursor('')
+    });
+    setEditRectList([]);
+    drawScene(canvasRef.current, imageInfo);
   }
 
   return (
@@ -447,11 +486,11 @@ export default function Index(props) {
       ].join(' ')
     }
          onCopy={handleCopy}
+         onContextMenu={handleCancel}
     >
       <Outer ref={outerRef}/>
       <OperateMenu>
         <FileInput handleInputChange={handleFileChange}/>
-
         <button onClick={handlePickColor}>
           <img src={SvgColorPicker} alt="icon"/>
           选择颜色
@@ -480,7 +519,7 @@ export default function Index(props) {
       {/*<h3>{screenShotRect?.startY}</h3>*/}
       {/*<h3>{screenShotRect?.endX}</h3>*/}
       {/*<h3>{screenShotRect?.endY}</h3>*/}
-      {/*{actionStatus.type === ACTION_TYPE.PICK_COLOR ? <InfoCard position={position}/> : null}*/}
+      {actionStatus.type === ACTION_TYPE.PICK_COLOR ? <InfoCard position={position}/> : null}
       {actionStatus.type === ACTION_TYPE.SCREEN_SHOT || actionStatus.type === ACTION_TYPE.EDITING_RECT ?
         <OperateBar style={operateBarStyle}
                     onEditRect={handleEditRect}

@@ -33,17 +33,11 @@ export const
   REGULATE_STROKE_STYLE = 'rgba(18,150,219,1)'
 
 
-export function drawRect(canvas, startX, startY, width, height, strokeStyle = 'rgba(0,0,0,1)') {
+export function drawScene(canvas, imageInfo) {
   if (!canvas instanceof HTMLCanvasElement) throw new Error('canvas error');
   const ctx = canvas.getContext('2d');
-  ctx.save();
-  ctx.lineWidth = SCREEN_SHOT_LINE_WIDTH;
-  ctx.lineJoin = SCREEN_SHOT_LINE_JOIN;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.beginPath();
-  ctx.setLineDash([5, 5]);
-  ctx.strokeRect(startX, startY, width, height);
-  ctx.restore();
+  ctx.drawImage(imageInfo.image, 0, 0, canvas.width, canvas.height);
+
 }
 
 export function drawRegulateRect(canvas, startX, startY, width, height, imageInfo) {

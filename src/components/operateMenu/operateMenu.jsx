@@ -9,15 +9,13 @@ export default function OperateMenu(props) {
       className={classes.con}
       style={style}
     >
-      <ul>
-        {
-          child.map(function (child, index) {
-            return (
-              <div key={index}>{child}</div>
-            )
-          })
-        }
-      </ul>
+      {
+        child.map(function (child, index) {
+          return (
+            <div key={index}>{child}</div>
+          )
+        })
+      }
 
     </section>
   )
