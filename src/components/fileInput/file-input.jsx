@@ -1,5 +1,6 @@
 import React, {useRef} from "react";
 import classes from "./fileinput.module.css";
+import {Button} from "@alifd/next";
 
 export default function FileInput(props) {
   const inputRef = useRef({});
@@ -13,7 +14,7 @@ export default function FileInput(props) {
   return (
     <div>
 
-      <button className={classes.button} onClick={handleActiveInput}>
+      <Button className={classes.button} onClick={handleActiveInput}>
         <svg t="1619934189509" className="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"
              p-id="1220" width="16" height="16">
           <path
@@ -21,8 +22,9 @@ export default function FileInput(props) {
             p-id="1221" fill="#1296db"></path>
         </svg>
         选择文件
-      </button>
+      </Button>
       <input type="file" className={classes.input} ref={inputRef}
+             accept='image/png,image/jpeg,image/gif'
              onChange={handleInputChange}/>
     </div>
   )

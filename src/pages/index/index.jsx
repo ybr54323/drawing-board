@@ -13,7 +13,7 @@ import OperateMenu from "../../components/operateMenu/operateMenu";
 import OperateBar from '../../components/operateBar/operateBar';
 
 import '@alifd/next/dist/next.css';
-import {Message,} from '@alifd/next';
+import {Message,Button} from '@alifd/next';
 import {Notification,} from '@alifd/next';
 
 let {warn: w, log: l} = console;
@@ -425,7 +425,7 @@ export default function Index(props) {
       return Message.notice('请点击要取色的区域');
     }
     if (!screenShotRect) return;
-    const temCanvas = document.createElement('canvas');
+    let temCanvas = document.createElement('canvas');
     outerRef.current.appendChild(temCanvas);
 
     temCanvas.width = screenShotRect.getWidth();
@@ -461,7 +461,7 @@ export default function Index(props) {
       downLink.download = 'test.jpg';
       downLink.click();
       URL.revokeObjectURL(url);
-      document.removeChild(temCanvas);
+      temCanvas = null;
       return Message.success('复制成功')
     }, 'image/jpeg', 1);
   }
@@ -513,20 +513,20 @@ export default function Index(props) {
       <Outer ref={outerRef}/>
       <OperateMenu>
         <FileInput handleInputChange={handleFileChange}/>
-        <button className={classes.btn} onClick={handlePickColor}>
+        <Button className={classes.btn} onClick={handlePickColor}>
           <img src={SvgColorPicker} alt="icon"/>
           选择颜色
-        </button>
-        <button className={classes.btn} onClick={handleClip}>
+        </Button>
+        <Button className={classes.btn} onClick={handleClip}>
           <img src={SvgScreenShot} alt="icon"/>
           图片裁剪
-        </button>
-        <button className={classes.btn} onClick={handleCopy}>
+        </Button>
+        <Button className={classes.btn} onClick={handleCopy}>
           <img src={SvgDownload} alt="icon"/>
           点击下载
-        </button>
+        </Button>
       </OperateMenu>
-      <div className={classes.sceneCon}
+      <div
       >
         <Canvas
           style={{
@@ -545,7 +545,6 @@ export default function Index(props) {
             <h2>{actionStatus.moment}</h2>
           </>
       }
-
       {/*<h2>{JSON.stringify(operateBarStyle)}</h2>*/}
       {/*<h3>{screenShotRect?.startX}</h3>*/}
       {/*<h3>{screenShotRect?.startY}</h3>*/}

@@ -1,7 +1,7 @@
 .button {
-  display: inline-flex;
+  display: flex !important;
   align-items: center;
-  justify-content: space-around;
+  justify-content: center;
 }
 
 .input {
