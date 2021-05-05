@@ -1,8 +1,8 @@
 component: website
-name: website-iKN7HdlHQ
+name: website-DFIZHEKad
 org: '1258255065'
-app: test
-stage: dev
+app: board
+stage: prod
 inputs:
   src:
     src: ./
@@ -10,5 +10,12 @@ inputs:
     error: index.html
   region: ap-guangzhou
   bucketName: my-bucket
-  protocol: https
+  protocol: http
   isAutoCiDeploy: false
+  cors:
+    - allowedOrigins:
+        - '*'
+      allowedMethods:
+        - GET
+      allowedHeaders: '*'
+      maxAgeSeconds: 5

@@ -5,5 +5,10 @@ import reactRefresh from '@vitejs/plugin-react-refresh'
 export default defineConfig({
   base: './',
   logLevel:'silent',
-  plugins: [reactRefresh()]
+  plugins: [reactRefresh()],
+  compress: {
+    warnings: false,
+    drop_debugger: true,
+    drop_console: true
+  },
 })

@@ -21,6 +21,7 @@ export default function InfoCard(props) {
   }
   return (
     <div
+      id='color'
       className={classes.infoCardCon}
       style={style}
     >

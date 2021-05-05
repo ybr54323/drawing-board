@@ -40,49 +40,6 @@ export function drawScene(canvas, imageInfo) {
 
 }
 
-export function drawRegulateRect(canvas, startX, startY, width, height, imageInfo) {
-  if (!imageInfo) throw new Error('need imageInfo obj');
-  const ctx = canvas.getContext('2d');
-  ctx.save();
-  ctx.strokeStyle = REGULATE_STROKE_STYLE;
-  ctx.lineWidth = SCREEN_SHOT_LINE_WIDTH;
-  ctx.lineJoin = SCREEN_SHOT_LINE_JOIN;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  ctx.drawImage(imageInfo.image, 0, 0, canvas.width, canvas.height);
-
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  for (let i = 0; i < imageData.data.length; i += 4) {
-    imageData.data[i] *= 0.5;
-    imageData.data[i + 1] *= 0.5;
-    imageData.data[i + 2] *= 0.5;
-  }
-  ctx.putImageData(imageData, 0, 0);
-
-
-  ctx.beginPath();
-  ctx.drawImage(imageInfo.image, startX, startY, width, height, startX, startY, width, height);
-  // todo 8个点
-  const midX = width / 2 + startX,
-    midY = height / 2 + startY,
-    endX = width + startX,
-    endY = height + startY;
-
-  [
-    [startX, startY],
-    [midX, startY],
-    [endX, startY],
-    [endX, midY],
-    [endX, endY],
-    [midX, endY],
-    [startX, endY],
-    [startX, midY]
-  ].forEach(function ([x, y]) {
-    drawCircle(canvas, x, y);
-  })
-
-  ctx.restore();
-}
 
 export function getLine(startX, startY, endX, endY, offsetX, offsetY) {
   // 让前4个状态更容易被触发
@@ -184,14 +141,6 @@ export class Rect {
       ctx: canvas.getContext('2d'),
       line: ''
     })
-    // this.startX = startX;
-    // this.startY = startY
-    // this.endX = endX;
-    // this.endY = endY;
-    // this.canvas = canvas;
-    // this.ctx = canvas.getContext('2d');
-    // this.line = '';
-
   }
 
   setStartX(startX) {
@@ -474,7 +423,7 @@ export class EditRect extends Rect {
   }
 
   draw(startX, startY, width, height, imageInfo) {
-    console.warn(startX, startY, width, height, imageInfo)
+    // console.warn(startX, startY, width, height, imageInfo)
     const {canvas} = this;
     const ctx = canvas.getContext('2d');
     ctx.save();

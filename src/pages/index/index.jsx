@@ -4,6 +4,7 @@ import FileInput from '../../components/fileInput/file-input';
 
 import SvgScreenShot from '../../../assert/svgScreenShot.svg';
 import SvgColorPicker from '../../../assert/svgColorPicker.svg';
+import SvgDownload from '../../../assert/download.svg';
 import Canvas from '../../components/canvas/canvas';
 import InfoCard from '../../components/infoCard/infoCard';
 import canvas from "../../components/canvas/canvas";
@@ -12,21 +13,22 @@ import OperateMenu from "../../components/operateMenu/operateMenu";
 import OperateBar from '../../components/operateBar/operateBar';
 
 import '@alifd/next/dist/next.css';
-import {Message, Button, Menu, Icon} from '@alifd/next';
-import {Notification, NumberPicker} from '@alifd/next';
+import {Message,} from '@alifd/next';
+import {Notification,} from '@alifd/next';
 
 let {warn: w, log: l} = console;
 if (import.meta.env.PROD) {
-  w = function (){};
-  l = function (){};
+  w = function () {
+  };
+  l = function () {
+  };
 }
 
 let duration = 4500;
-const openNotification = () => {
+const openNotification = (title, content) => {
   const args = {
-    title: "提示",
-    content:
-      "ctrl + c 可以复制色号",
+    title,
+    content,
     duration
   };
   Notification.open(args);
@@ -55,7 +57,6 @@ export default function Index(props) {
 
   const outerRef = useRef(null)
   const canvasRef = useRef(null);
-
   const [imageInfo, setImageInfo] = useState(null);
   const [position, setPosition] = useState({x: 0, y: 0, colorArrayData: []})
 
@@ -144,6 +145,10 @@ export default function Index(props) {
   const handleMouseDown = throttle(function (ev) {
     const {nativeEvent: {offsetX, offsetY}} = ev;
     const {type, moment} = actionStatus;
+    if (type === ACTION_TYPE.PICK_COLOR) {
+      copyText(position.colorArrayData.toString());
+      return Message.success('复制成功');
+    }
     if (type === ACTION_TYPE.SCREEN_SHOT) {
 
       if (moment === ACTION_MOMENT.BEFORE_START) {
@@ -351,7 +356,7 @@ export default function Index(props) {
       type: ACTION_TYPE.PICK_COLOR,
       moment: ACTION_MOMENT.BEFORE_START
     })
-    openNotification('color');
+    openNotification('提示', '点击要取色的地方即可取色');
   }
 
   function handleClip() {
@@ -363,7 +368,7 @@ export default function Index(props) {
       endY: 0,
       canvas: canvasRef.current
     }));
-
+    setEditRectList([]);
   }
 
   useEffect(function () {
@@ -397,38 +402,57 @@ export default function Index(props) {
     isEditingRect,
   })
 
+  function copyText(text, callback) { // text: 要复制的内容， callback: 回调
+    let tag = document.createElement('input');
+    tag.setAttribute('id', 'cp_hgz_input');
+    tag.value = text;
+    document.getElementsByTagName('body')[0].appendChild(tag);
+    document.getElementById('cp_hgz_input').select();
+    document.execCommand('copy');
+    document.getElementById('cp_hgz_input').remove();
+    if (callback) {
+      callback(text)
+    }
+  }
+
   function handleCopy(ev) {
     if (!imageInfo) return Message.warning('请先选择图片');
     const {type} = actionStatus;
-    if (type === ACTION_TYPE.INIT) return;
-    if (type === ACTION_TYPE.PICK_COLOR) {
-      Navigator.clipboard.writeText("test").then(function () {
-        w('success')
-        /* success */
-      }, function () {
-        w('error');
-        /* failure */
-      });
-      return;
+    if (type === ACTION_TYPE.INIT) {
+      return Message.notice('请选定要截取的范围');
     }
+    if (type === ACTION_TYPE.PICK_COLOR) {
+      return Message.notice('请点击要取色的区域');
+    }
+    if (!screenShotRect) return;
     const temCanvas = document.createElement('canvas');
     outerRef.current.appendChild(temCanvas);
-
-    // const {startX, startY, endX, endY} = actionStatus;
 
     temCanvas.width = screenShotRect.getWidth();
     temCanvas.height = screenShotRect.getHeight();
     const temCtx = temCanvas.getContext('2d');
 
+    const baseStartX = screenShotRect.getStartX(),
+      baseStartY = screenShotRect.getStartY();
+
     temCtx.drawImage(imageInfo.image,
-      screenShotRect.getStartX(),
-      screenShotRect.getStartY(),
+      baseStartX,
+      baseStartY,
       screenShotRect.getWidth(),
       screenShotRect.getHeight(),
       0,
       0,
       screenShotRect.getWidth(),
       screenShotRect.getHeight());
+    if (editRectList.length) {
+      editRectList.forEach(function (editRect) {
+        temCtx.strokeRect(
+          editRect.getStartX() - baseStartX,
+          editRect.getStartY() - baseStartY,
+          editRect.getWidth(),
+          editRect.getHeight());
+      })
+    }
     // todo 其他几个矩形
     temCanvas.toBlob(function (blob) {
       const url = URL.createObjectURL(blob);
@@ -436,6 +460,9 @@ export default function Index(props) {
       downLink.href = url;
       downLink.download = 'test.jpg';
       downLink.click();
+      URL.revokeObjectURL(url);
+      document.removeChild(temCanvas);
+      return Message.success('复制成功')
     }, 'image/jpeg', 1);
   }
 
@@ -486,13 +513,17 @@ export default function Index(props) {
       <Outer ref={outerRef}/>
       <OperateMenu>
         <FileInput handleInputChange={handleFileChange}/>
-        <button onClick={handlePickColor}>
+        <button className={classes.btn} onClick={handlePickColor}>
           <img src={SvgColorPicker} alt="icon"/>
           选择颜色
         </button>
-        <button onClick={handleClip}>
+        <button className={classes.btn} onClick={handleClip}>
           <img src={SvgScreenShot} alt="icon"/>
           图片裁剪
+        </button>
+        <button className={classes.btn} onClick={handleCopy}>
+          <img src={SvgDownload} alt="icon"/>
+          点击下载
         </button>
       </OperateMenu>
       <div className={classes.sceneCon}
@@ -506,9 +537,15 @@ export default function Index(props) {
           onMouseUp={handleMouseUp}
           ref={canvasRef}/>
       </div>
-      <h2>{JSON.stringify(operateBarStyle)}</h2>
-      <h2>{actionStatus.type}</h2>
-      <h2>{actionStatus.moment}</h2>
+      {
+        import.meta.env.PROD ? null :
+          <>
+            <h2>{JSON.stringify(operateBarStyle)}</h2>
+            <h2>{actionStatus.type}</h2>
+            <h2>{actionStatus.moment}</h2>
+          </>
+      }
+
       {/*<h2>{JSON.stringify(operateBarStyle)}</h2>*/}
       {/*<h3>{screenShotRect?.startX}</h3>*/}
       {/*<h3>{screenShotRect?.startY}</h3>*/}
