@@ -21,9 +21,9 @@ export const
   },
 
   ACTION_MOMENT = { // 生命周期
+    INIT: 'INIT',
     BEFORE_START: 'BEFORE_START', // 未开始
     STARTED: 'STARTED', // 进行中
-    END: 'END', // 结束
     REGULATING: 'REGULATING', // 调整中
   },
 
@@ -375,10 +375,10 @@ export class Rect {
     }
     ctx.putImageData(imageData, 0, 0);
     ctx.drawImage(imageInfo.image, startX, startY, width, height, startX, startY, width, height);
+    ctx.restore();
     drawCbArr.forEach(function (cb) {
       cb()
     });
-    ctx.restore();
   }
 
   mouseUpDraw(imageInfo) {
@@ -491,7 +491,7 @@ export class EditText extends Rect {
     const ctx = canvas.getContext('2d');
     ctx.save();
     ctx.strokeStyle = this.getStrokeStyle();
-    ctx.strokeText(this.getText(), this.getStartX(), this.getStartY());
+    ctx.strokeText(this.getText(), this.getStartX(), this.getStartY() + 10);
     ctx.restore();
   }
 }

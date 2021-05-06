@@ -85,8 +85,8 @@ export default function Index() {
   const [editRectStyles, setEditRectStyles] = useState([1, '#000']);
 
   const [actionStatus, actionEmitter] = useState({
-    type: ACTION_TYPE.INIT, // todo
-    moment: ACTION_MOMENT.BEFORE_START, // STARTED
+    type: ACTION_TYPE.INIT,
+    moment: ACTION_MOMENT.INIT,
     cursor: getCursor(),
   })
 
@@ -144,8 +144,7 @@ export default function Index() {
       return Message.success('复制成功');
     }
     if (type === ACTION_TYPE.SCREEN_SHOT) {
-
-      if (moment === ACTION_MOMENT.BEFORE_START) {
+      if ([ACTION_MOMENT.BEFORE_START, ACTION_MOMENT.INIT].indexOf(moment) > -1) {
         const line = screenShotRect.getCurActiveLine(offsetX, offsetY);
         if (!line) {
           screenShotRect.setStartX(offsetX);
@@ -250,7 +249,7 @@ export default function Index() {
             return actionEmitter({
               type: ACTION_TYPE.SCREEN_SHOT,
               moment: ACTION_MOMENT.BEFORE_START,
-              cursor: getCursor( ACTION_TYPE.SCREEN_SHOT)
+              cursor: getCursor(ACTION_TYPE.SCREEN_SHOT)
             });
           }
         }
@@ -268,7 +267,6 @@ export default function Index() {
       if (moment === ACTION_MOMENT.STARTED) {
         screenShotRect.mouseMoveDraw(offsetX, offsetY, imageInfo);
       }
-
 
 
       if (moment === ACTION_MOMENT.REGULATING) {
@@ -298,13 +296,18 @@ export default function Index() {
         screenShotRect.draw(screenShotRect.getStartX(), screenShotRect.getStartY(), screenShotRect.getWidth(), screenShotRect.getHeight(), imageInfo,
           editRectList.slice(0, editRectList.length - 1).map(function (editRect) {
             return editRect.mouseUpDraw.bind(editRect, imageInfo);
-          }).concat([curEditRect.mouseMoveDraw.bind(curEditRect, offsetX, offsetY, imageInfo),
-          ])
+          }).concat(
+            [curEditRect.mouseMoveDraw.bind(curEditRect, offsetX, offsetY, imageInfo)]
+          ).concat(
+            editTextList.map(function (editText) {
+              return editText.draw.bind(editText);
+            })
+          )
         )
       }
     }
 
-  }, 30)
+  }, 0)
 
   const handleMouseUp = throttle(function (ev) {
     const {nativeEvent: {offsetX, offsetY}} = ev;
@@ -349,7 +352,11 @@ export default function Index() {
       screenShotRect.draw(screenShotRect.getStartX(), screenShotRect.getStartY(), screenShotRect.getWidth(), screenShotRect.getHeight(), imageInfo,
         editRectList.map(function (editRect) {
           return editRect.mouseUpDraw.bind(editRect, imageInfo);
-        })
+        }).concat(
+          editTextList.map(function (editText) {
+            return editText.draw.bind(editText);
+          })
+        )
       )
 
       actionEmitter({
@@ -366,21 +373,21 @@ export default function Index() {
 
   function handlePickColor() {
     if (!imageInfo) return Message.warning('请先选择图片');
+    drawScene(canvasRef.current, imageInfo);
     actionEmitter({
       type: ACTION_TYPE.PICK_COLOR,
       moment: ACTION_MOMENT.BEFORE_START,
       cursor: getCursor(ACTION_TYPE.PICK_COLOR),
     })
+    setEditTextList([]);
+    setEditRectList([]);
     openNotification('提示', '点击要取色的地方即可取色');
   }
 
   function handleClip() {
     if (!imageInfo) return Message.warning('请先选择图片');
-    actionEmitter({
-      type: ACTION_TYPE.SCREEN_SHOT,
-      moment: ACTION_MOMENT.BEFORE_START,
-      cursor: getCursor(ACTION_TYPE.SCREEN_SHOT),
-    })
+
+    drawScene(canvasRef.current, imageInfo);
     setScreenShotRect(new Rect({
       startX: 0,
       startY: 0,
@@ -388,19 +395,15 @@ export default function Index() {
       endY: 0,
       canvas: canvasRef.current
     }));
+    setEditTextList([]);
     setEditRectList([]);
-    openNotification('提示', '绘制完成可按ctrl + c下载图片');
-  }
-
-  useEffect(function () {
-    if (!screenShotRect) return;
-    // 进入截屏模式
     actionEmitter({
       type: ACTION_TYPE.SCREEN_SHOT,
-      moment: ACTION_MOMENT.BEFORE_START,
+      moment: ACTION_MOMENT.INIT,
       cursor: getCursor(ACTION_TYPE.SCREEN_SHOT),
     })
-  }, [screenShotRect])
+    openNotification('提示', '绘制完成可按ctrl + c下载图片');
+  }
 
 
   // 处理样式
@@ -411,10 +414,11 @@ export default function Index() {
       ACTION_TYPE.SCREEN_SHOT,
       ACTION_TYPE.EDIT_TEXT,
       ACTION_TYPE.EDIT_RECT
-    ].indexOf(type) > -1 && moment !== ACTION_MOMENT.STARTED,
+    ].indexOf(type) > -1 && [ACTION_MOMENT.INIT].indexOf(moment) === -1,
     isEditingRect = type === ACTION_TYPE.EDIT_RECT,
     isEditingText = type === ACTION_TYPE.EDIT_TEXT;
 
+  w(operateBarVisibility)
   screenShotRect && Object.assign(operateBarStyle, {
     display: operateBarVisibility ? 'block' : 'none',
     x: screenShotRect.getStartX() + screenShotRect.canvas.offsetLeft,
@@ -479,6 +483,16 @@ export default function Index() {
           editRect.getHeight());
       })
     }
+    if (editTextList.length) {
+      editTextList.forEach(function (editText) {
+        temCtx.strokeStyle = editText.getStrokeStyle();
+        temCtx.lineWidth = editText.getLineWidth();
+        temCtx.strokeText(
+          editText.getText(),
+          editText.getStartX() - baseStartX,
+          editText.getStartY() + 10 - baseStartY);
+      })
+    }
     // todo 其他几个矩形
     temCanvas.toBlob(function (blob) {
       const url = URL.createObjectURL(blob);
@@ -493,7 +507,6 @@ export default function Index() {
   }
 
   function handleEditRect() {
-    setEditRectList([]);
     actionEmitter({
       type: ACTION_TYPE.EDIT_RECT,
       moment: ACTION_MOMENT.BEFORE_START,
@@ -502,9 +515,6 @@ export default function Index() {
   }
 
   function handleEditText() {
-    Message.notice('todo');
-    // 清空
-    setEditTextList([]);
     actionEmitter({
       type: ACTION_TYPE.EDIT_TEXT,
       moment: ACTION_MOMENT.BEFORE_START,
@@ -549,7 +559,6 @@ export default function Index() {
     }
          onCopy={handleCopy}
          onContextMenu={handleCancel}
-
     >
       <Outer ref={outerRef}/>
       <OperateMenu>
@@ -568,12 +577,12 @@ export default function Index() {
         </Button>
       </OperateMenu>
       <div
-        style={
-          {cursor: actionStatus.cursor}
-        }
+
       >
         <Canvas
-
+          style={
+            {cursor: actionStatus.cursor}
+          }
           onMouseMove={handleMouseMove}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
