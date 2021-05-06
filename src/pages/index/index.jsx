@@ -13,7 +13,7 @@ import OperateMenu from "../../components/operateMenu/operateMenu";
 import OperateBar from '../../components/operateBar/operateBar';
 
 import '@alifd/next/dist/next.css';
-import {Message,Button} from '@alifd/next';
+import {Message, Button} from '@alifd/next';
 import {Notification,} from '@alifd/next';
 
 let {warn: w, log: l} = console;
@@ -69,26 +69,23 @@ export default function Index(props) {
     const {nativeEvent: {offsetX, offsetY}, pageX, pageY} = ev;
     const {w, h, imageData} = imageInfo;
     if (!imageData) return Message.warning('need imageData');
-    let colorArrayData = [];
     if (offsetX >= 1 && offsetY >= 1 && offsetX * offsetY <= w * h) {
       let start = (offsetY - 1) * 4 * w + (offsetX - 1) * 4;
-      colorArrayData = [
+      return [
         imageData.data[start],
         imageData.data[start + 1],
         imageData.data[start + 2],
         imageData.data[start + 3],
-      ]
-      setPosition({
-        x: pageX + 15,
-        y: pageY + 15,
-        colorArrayData
-      });
+      ];
     }
   }, 0)
 
   const [screenShotRect, setScreenShotRect] = useState(null);
 
+  // 绘制矩形数组
   const [editRectList, setEditRectList] = useState([]);
+
+  const [editRectStyles, setEditRectStyles] = useState([1, '#000']);
 
   const [actionStatus, actionEmitter] = useState({
     type: ACTION_TYPE.INIT, // todo
@@ -157,7 +154,7 @@ export default function Index(props) {
         actionEmitter({
           type: ACTION_TYPE.SCREEN_SHOT,
           moment: ACTION_MOMENT.STARTED,
-          cursor: getCursor(),
+          cursor: getCursor(ACTION_TYPE.SCREEN_SHOT),
         })
       }
       if (moment === ACTION_MOMENT.END) { // 圈完截图区域。
@@ -167,7 +164,7 @@ export default function Index(props) {
         const moment = line ? ACTION_MOMENT.REGULATING : ACTION_MOMENT.END;
         screenShotRect.setCurrentLine(line);
         actionEmitter({
-          ...actionStatus,
+          type: ACTION_TYPE.SCREEN_SHOT,
           moment,
           cursor: getCursor(line)
         })
@@ -184,17 +181,22 @@ export default function Index(props) {
         actionEmitter({
           type: ACTION_TYPE.EDITING_RECT,
           moment: ACTION_MOMENT.STARTED,
-          cursor: getCursor(),
+          cursor: getCursor(ACTION_TYPE.EDITING_RECT),
         })
 
+        const editRect = new EditRect({
+          startX: offsetX,
+          startY: offsetY,
+          canvas: canvasRef.current,
+        })
+        // 设置绘制矩形的样式
+        const [lineWidth, strokeStyle] = editRectStyles;
+        editRect.setLineWidth(lineWidth);
+        editRect.setStrokeStyle(strokeStyle);
         setEditRectList(
           [
             ...editRectList,
-            new EditRect({
-              startX: offsetX,
-              startY: offsetY,
-              canvas: canvasRef.current,
-            })
+            editRect,
           ]);
       }
       if (moment === ACTION_MOMENT.END) {
@@ -213,9 +215,9 @@ export default function Index(props) {
         if (line) w(line);
         curEditRect.setCurrentLine(line);
         actionEmitter({
-          ...actionStatus,
+          type: ACTION_TYPE.EDITING_RECT,
           moment: ACTION_MOMENT.STARTED,
-          cursor: getCursor(line),
+          cursor: getCursor(line || ACTION_TYPE.EDITING_RECT),
         })
 
 
@@ -227,12 +229,17 @@ export default function Index(props) {
 
 
   const handleMouseMove = throttle(function (ev) {
-    const {nativeEvent: {offsetX, offsetY}} = ev;
+    const {nativeEvent: {offsetX, offsetY}, pageX, pageY} = ev;
     const {width, height} = canvasRef.current;
     const {type, moment} = actionStatus;
 
     if (type === ACTION_TYPE.PICK_COLOR) {
-      calcCursorPosition(ev, imageInfo)
+      const colorArrayData = calcCursorPosition(ev, imageInfo)
+      setPosition({
+        x: pageX + 15,
+        y: pageY + 15,
+        colorArrayData
+      });
     }
 
     if (type === ACTION_TYPE.SCREEN_SHOT) {
@@ -243,11 +250,13 @@ export default function Index(props) {
       }
 
       if (moment === ACTION_MOMENT.END) {
+        // 获取当前激活的边
         const line = screenShotRect.getCurActiveLine(offsetX, offsetY);
         if (line) w(line)
         actionEmitter({
-          ...actionStatus,
-          cursor: getCursor(line)
+          type: ACTION_TYPE.SCREEN_SHOT,
+          moment: ACTION_MOMENT.END,
+          cursor: getCursor(line || ACTION_TYPE.SCREEN_SHOT)
         })
       }
 
@@ -307,7 +316,7 @@ export default function Index(props) {
         actionEmitter({
           type: ACTION_TYPE.SCREEN_SHOT,
           moment: ACTION_MOMENT.END,
-          cursor: getCursor()
+          cursor: getCursor(ACTION_TYPE.SCREEN_SHOT)
         })
       }
 
@@ -320,7 +329,7 @@ export default function Index(props) {
         actionEmitter({
           type: ACTION_TYPE.SCREEN_SHOT,
           moment: ACTION_MOMENT.END,
-          cursor: getCursor(),
+          cursor: getCursor(ACTION_TYPE.SCREEN_SHOT),
         })
       }
 
@@ -343,7 +352,7 @@ export default function Index(props) {
       actionEmitter({
         type: ACTION_TYPE.EDITING_RECT,
         moment: ACTION_MOMENT.BEFORE_START,
-        cursor: getCursor()
+        cursor: getCursor(ACTION_TYPE.EDITING_RECT)
       })
     }
   }, 0);
@@ -352,15 +361,20 @@ export default function Index(props) {
   function handlePickColor(ev) {
     if (!imageInfo) return Message.warning('请先选择图片');
     actionEmitter({
-      ...actionStatus,
       type: ACTION_TYPE.PICK_COLOR,
-      moment: ACTION_MOMENT.BEFORE_START
+      moment: ACTION_MOMENT.BEFORE_START,
+      cursor: getCursor(ACTION_TYPE.PICK_COLOR),
     })
     openNotification('提示', '点击要取色的地方即可取色');
   }
 
   function handleClip() {
     if (!imageInfo) return Message.warning('请先选择图片');
+    actionEmitter({
+      type: ACTION_TYPE.SCREEN_SHOT,
+      moment: ACTION_MOMENT.BEFORE_START,
+      cursor: getCursor(ACTION_TYPE.SCREEN_SHOT),
+    })
     setScreenShotRect(new Rect({
       startX: 0,
       startY: 0,
@@ -369,6 +383,7 @@ export default function Index(props) {
       canvas: canvasRef.current
     }));
     setEditRectList([]);
+    openNotification('提示', '绘制完成可按ctrl + c下载图片');
   }
 
   useEffect(function () {
@@ -377,7 +392,7 @@ export default function Index(props) {
     actionEmitter({
       type: ACTION_TYPE.SCREEN_SHOT,
       moment: ACTION_MOMENT.BEFORE_START,
-      cursor: getCursor(),
+      cursor: getCursor(ACTION_TYPE.SCREEN_SHOT),
     })
   }, [screenShotRect])
 
@@ -446,6 +461,8 @@ export default function Index(props) {
       screenShotRect.getHeight());
     if (editRectList.length) {
       editRectList.forEach(function (editRect) {
+        temCtx.strokeStyle = editRect.getStrokeStyle();
+        temCtx.lineWidth = editRect.getLineWidth();
         temCtx.strokeRect(
           editRect.getStartX() - baseStartX,
           editRect.getStartY() - baseStartY,
@@ -466,7 +483,7 @@ export default function Index(props) {
     }, 'image/jpeg', 1);
   }
 
-  function handleEditRect(ev) {
+  function handleEditRect() {
     let {type, moment} = actionStatus;
     type = type === ACTION_TYPE.SCREEN_SHOT ? ACTION_TYPE.EDITING_RECT : ACTION_TYPE.SCREEN_SHOT;
 
@@ -480,7 +497,7 @@ export default function Index(props) {
     actionEmitter({
       type,
       moment,
-      cursor: getCursor(),
+      cursor: getCursor(type),
     })
   }
 
@@ -499,6 +516,16 @@ export default function Index(props) {
     });
     setEditRectList([]);
     drawScene(canvasRef.current, imageInfo);
+  }
+
+  function handleChangeLineWidth(lW) {
+    w(lW)
+    setEditRectStyles([lW, editRectStyles[1]]);
+  }
+
+  function handleChangeStrokeStyle(sS) {
+    w(sS)
+    setEditRectStyles([editRectStyles[0], sS]);
   }
 
   return (
@@ -529,9 +556,9 @@ export default function Index(props) {
       <div
       >
         <Canvas
-          style={{
-            cursor: actionStatus.cursor
-          }}
+          style={
+            {cursor: actionStatus.cursor}
+          }
           onMouseMove={handleMouseMove}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
@@ -553,6 +580,8 @@ export default function Index(props) {
       {actionStatus.type === ACTION_TYPE.PICK_COLOR ? <InfoCard position={position}/> : null}
       {actionStatus.type === ACTION_TYPE.SCREEN_SHOT || actionStatus.type === ACTION_TYPE.EDITING_RECT ?
         <OperateBar style={operateBarStyle}
+                    onChangeLineWidth={handleChangeLineWidth}
+                    onChangeStrokeStyle={handleChangeStrokeStyle}
                     onEditRect={handleEditRect}
                     onEditText={handleEditText}
         /> : null}

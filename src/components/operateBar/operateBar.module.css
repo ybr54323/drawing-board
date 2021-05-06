@@ -1,6 +1,6 @@
 .con {
   position: absolute;
-  background-color: rgba(0,0,0,0.5);
+  background-color: rgba(0, 0, 0, 0.5);
 }
 
 .btn {
@@ -11,4 +11,53 @@
   height: 30px;
   color: #fff;
   cursor: pointer;
+}
+
+.btnActive {
+  border: 1px solid #fff;
+}
+
+.thin {
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.3);
+  box-sizing: border-box;
+  padding: 11px;
+  background-clip: content-box;
+}
+
+.medium {
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.3);
+  box-sizing: border-box;
+  padding: 8px;
+  background-clip: content-box;
+}
+
+.large {
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.3);
+  box-sizing: border-box;
+  padding: 5px;
+  background-clip: content-box;
+}
+
+.r {
+  box-sizing: border-box;
+  padding: 5px;
+  background-clip: content-box;
+  background-color: red;
+}
+
+.g {
+  box-sizing: border-box;
+  padding: 5px;
+  background-clip: content-box;
+  background-color: green;
+}
+
+.b {
+  box-sizing: border-box;
+  padding: 5px;
+  background-clip: content-box;
+  background-color: blue;
 }

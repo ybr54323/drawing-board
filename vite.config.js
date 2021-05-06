@@ -3,8 +3,8 @@ import reactRefresh from '@vitejs/plugin-react-refresh'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: './',
-  logLevel:'silent',
+  // base: './',
+  // logLevel:'silent',
   plugins: [reactRefresh()],
   compress: {
     warnings: false,

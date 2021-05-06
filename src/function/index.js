@@ -66,6 +66,9 @@ export function getLine(startX, startY, endX, endY, offsetX, offsetY) {
 
 export function getCursor(linePositionStr) {
   if (!linePositionStr) return 'grabbing';
+  if (linePositionStr === ACTION_TYPE.SCREEN_SHOT) return 'crosshair';
+  if (linePositionStr === ACTION_TYPE.EDITING_RECT) return 'crosshair';
+  if (linePositionStr === ACTION_TYPE.PICK_COLOR) return 'pointer';
   if ([TOP_RIGHT, BOTTOM_LEFT].indexOf(linePositionStr) > -1) return 'nesw-resize';
   if ([TOP_LEFT, BOTTOM_RIGHT].indexOf(linePositionStr) > -1) return 'nwse-resize';
   if ([TOP, BOTTOM].indexOf(linePositionStr) > -1) return 'row-resize';
@@ -104,6 +107,7 @@ export function drawCircle(canvas, x, y, r, fillStyle = 'white') {
   ctx.fillStyle = fillStyle;
   ctx.fill();
 }
+
 export function getImageInfo(blobUrl, conNode) {
   return new Promise(((resolve, reject) => {
     if (!blobUrl) reject()
@@ -126,19 +130,18 @@ export function getImageInfo(blobUrl, conNode) {
 export class Rect {
   constructor({
 
-                startX,
-                startY,
-                endX,
-                endY,
-                canvas,
-              }) {
+                startX = 0,
+                startY = 0,
+                endX = 0,
+                endY = 0,
+                canvas = null,
+              } = {}) {
     Object.assign(this, {
       startX,
       startY,
       endX,
       endY,
       canvas,
-      ctx: canvas.getContext('2d'),
       line: ''
     })
   }
@@ -158,6 +161,10 @@ export class Rect {
 
   setEndY(endY) {
     this.endY = endY;
+  }
+
+  setCanvas(canvas) {
+    this.canvas = canvas;
   }
 
   getStartX() {
@@ -404,14 +411,22 @@ export class Rect {
 }
 
 export class EditRect extends Rect {
-  constructor(props) {
+  constructor(props = {}) {
     super(props);
     const {strokeStyle = '#000'} = props;
     this.strokeStyle = strokeStyle;
   }
 
+  setLineWidth(lineWidth) {
+    this.lineWidth = lineWidth;
+  }
+
   setStrokeStyle(style) {
     this.strokeStyle = style;
+  }
+
+  getLineWidth() {
+    return this.lineWidth || 1;
   }
 
   getStrokeStyle() {
@@ -428,7 +443,7 @@ export class EditRect extends Rect {
     const ctx = canvas.getContext('2d');
     ctx.save();
     ctx.strokeStyle = this.getStrokeStyle();
-    ctx.lineWidth = 1;
+    ctx.lineWidth = this.getLineWidth();
     ctx.lineJoin = SCREEN_SHOT_LINE_JOIN;
     ctx.strokeRect(startX, startY, width, height);
     ctx.restore();
