@@ -430,11 +430,11 @@ export default function Index() {
   // 文本输入框样式
   const editTextInputStyle = {
       position: 'absolute',
-      transform: 'translate3d(0,0,0.1)',
+      transform: 'translate3d(0,0,0)',
       backgroundColor: 'transparent',
     },
     len = editTextList.length,
-    editTextInputVisibility = type === ACTION_TYPE.EDIT_TEXT;
+    editTextInputVisibility = (type === ACTION_TYPE.EDIT_TEXT) && (moment === ACTION_MOMENT.STARTED);
 
   len && Object.assign(editTextInputStyle, {
     display: editTextInputVisibility ? 'block' : 'none',
@@ -616,6 +616,7 @@ export default function Index() {
       {
         type === ACTION_TYPE.EDIT_TEXT ?
           <input
+            className={classes.editText}
             onChange={handleEditTextChange}
             style={editTextInputStyle}
           /> : null
