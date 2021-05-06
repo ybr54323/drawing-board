@@ -16,22 +16,36 @@ export const
     INIT: 'INIT', // 空白状态
     SCREEN_SHOT: 'SCREEN_SHOT', // 截屏
     PICK_COLOR: 'PICK_COLOR', // 色吸管
-    EDITING_RECT: 'EDITING_RECT', // 编辑状态
+    EDIT_RECT: 'EDIT_RECT', // 编辑状态
+    EDIT_TEXT: 'EDIT_TEXT',
   },
+
   ACTION_MOMENT = { // 生命周期
     BEFORE_START: 'BEFORE_START', // 未开始
     STARTED: 'STARTED', // 进行中
     END: 'END', // 结束
     REGULATING: 'REGULATING', // 调整中
-
   },
+
   CANVAS_WIDTH = 300, // canvas width
   CANVAS_HEIGHT = 150, // canvas height
   ABOUT_NUM = 5, // 命中半径
 
-  SCALE = 2, // canvas 放大比例
+  SCALE = 1, // canvas 放大比例
   REGULATE_STROKE_STYLE = 'rgba(18,150,219,1)'
 
+export function copyText(text, callback) { // text: 要复制的内容， callback: 回调
+  let tag = document.createElement('input');
+  tag.setAttribute('id', 'cp_hgz_input');
+  tag.value = text;
+  document.getElementsByTagName('body')[0].appendChild(tag);
+  document.getElementById('cp_hgz_input').select();
+  document.execCommand('copy');
+  document.getElementById('cp_hgz_input').remove();
+  if (callback) {
+    callback(text)
+  }
+}
 
 export function drawScene(canvas, imageInfo) {
   if (!canvas instanceof HTMLCanvasElement) throw new Error('canvas error');
@@ -64,15 +78,16 @@ export function getLine(startX, startY, endX, endY, offsetX, offsetY) {
   return null;
 }
 
-export function getCursor(linePositionStr) {
-  if (!linePositionStr) return 'grabbing';
-  if (linePositionStr === ACTION_TYPE.SCREEN_SHOT) return 'crosshair';
-  if (linePositionStr === ACTION_TYPE.EDITING_RECT) return 'crosshair';
-  if (linePositionStr === ACTION_TYPE.PICK_COLOR) return 'pointer';
-  if ([TOP_RIGHT, BOTTOM_LEFT].indexOf(linePositionStr) > -1) return 'nesw-resize';
-  if ([TOP_LEFT, BOTTOM_RIGHT].indexOf(linePositionStr) > -1) return 'nwse-resize';
-  if ([TOP, BOTTOM].indexOf(linePositionStr) > -1) return 'row-resize';
-  if ([LEFT, RIGHT].indexOf(linePositionStr) > -1) return 'col-resize';
+export function getCursor(str) {
+  if (!str) return 'grabbing';
+  if (str === ACTION_TYPE.SCREEN_SHOT) return 'grabbing';
+  if (str === ACTION_TYPE.EDIT_RECT) return 'crosshair';
+  if (str === ACTION_TYPE.PICK_COLOR) return 'pointer';
+  if (str === ACTION_TYPE.EDIT_TEXT) return 'text';
+  if ([TOP_RIGHT, BOTTOM_LEFT].indexOf(str) > -1) return 'nesw-resize';
+  if ([TOP_LEFT, BOTTOM_RIGHT].indexOf(str) > -1) return 'nwse-resize';
+  if ([TOP, BOTTOM].indexOf(str) > -1) return 'row-resize';
+  if ([LEFT, RIGHT].indexOf(str) > -1) return 'col-resize';
   return 'grabbing';
 }
 
@@ -188,12 +203,10 @@ export class Rect {
   }
 
   getWidth() {
-    // if (this.endX < this.startX) throw new Error('endX can\'t less than startX');
     return this.endX - this.startX;
   }
 
   getHeight() {
-    // if (this.endY < this.startY) throw new Error('endY can\'t less than startY');
     return this.endY - this.startY;
   }
 
@@ -203,6 +216,23 @@ export class Rect {
 
   getCurrentLine() {
     return this.line;
+  }
+
+
+  setLineWidth(lineWidth) {
+    this.lineWidth = lineWidth;
+  }
+
+  setStrokeStyle(style) {
+    this.strokeStyle = style;
+  }
+
+  getLineWidth() {
+    return this.lineWidth || 1;
+  }
+
+  getStrokeStyle() {
+    return this.strokeStyle;
   }
 
   // todo 有问题
@@ -230,7 +260,7 @@ export class Rect {
 
   // 根据oX,oY，和当前能取到的line，来重新定位s，e坐标, 判断是否需要和已经重设了.
   mouseUpResetPos(offsetX, offsetY) {
-    const line = this.line;
+    const line = this.getCurrentLine();
     if (!line) return null;
 
     if (line === TOP) this.resetTop(offsetY);
@@ -242,7 +272,7 @@ export class Rect {
     if (line === BOTTOM_LEFT) this.resetBottomLeft(offsetX, offsetY);
     if (line === BOTTOM_RIGHT) this.resetBottomRight(offsetX, offsetY);
 
-    return true;
+    return line;
   }
 
   resetTop(offsetY) {
@@ -280,12 +310,11 @@ export class Rect {
   resetTopLeft(offsetX, offsetY) {
     if (offsetX > this.endX && offsetY > this.endY) {
       [this.startX, this.startY, this.endX, this.endY] = [this.endX, this.endY, offsetX, offsetY];
-    }
-      // else if (offsetX > this.endX) {
-      //   [this.startX, this.startY, this.endX, this.endY] = [this.endX, offsetY, offsetX, this.endY];
-    // }
-
-    else {
+    } else if (offsetX > this.endX) {
+      [this.startX, this.startY, this.endX, this.endY] = [this.endX, offsetY, offsetX, this.endY];
+    } else if (offsetY > this.endY) {
+      [this.startX, this.startY, this.endX, this.endY] = [offsetX, this.endY, this.startX, offsetY]
+    } else {
       [this.startX, this.startY] = [offsetX, offsetY];
     }
   }
@@ -293,20 +322,22 @@ export class Rect {
   resetTopRight(offsetX, offsetY) {
     if (offsetX < this.startX && offsetY > this.endY) {
       [this.startX, this.startY, this.endX, this.endY] = [offsetX, this.endY, this.startX, offsetY];
-    }
-      // else if (offsetX < this.startX) {
-      //   [this.startX, this.startY, this.endX, this.endY] = [offsetX, offsetY, this.startX, this.endY];
-    // }
-    else {
-
+    } else if (offsetX < this.startX) {
+      [this.startX, this.startY, this.endX, this.endY] = [offsetX, offsetY, this.startX, this.endY];
+    } else if (offsetY > this.endY) {
+      [this.startX, this.startY, this.endX, this.endY] = [this.startX, this.endY, offsetX, offsetY];
+    } else {
       [this.endX, this.startY] = [offsetX, offsetY];
     }
   }
 
   resetBottomLeft(offsetX, offsetY) {
-
     if (offsetX > this.endX && offsetY < this.startY) {
       [this.startX, this.startY, this.endX, this.endY] = [this.endX, offsetY, offsetX, this.startY];
+    } else if (offsetY < this.startY) {
+      [this.startX, this.startY, this.endX, this.endY] = [offsetX, offsetY, this.endX, this.startY];
+    } else if (offsetX > this.endX) {
+      [this.startX, this.startY, this.endX, this.endY] = [this.endX, this.startY, offsetX, offsetY];
     } else {
       [this.startX, this.endY] = [offsetX, offsetY]
     }
@@ -315,6 +346,10 @@ export class Rect {
   resetBottomRight(offsetX, offsetY) {
     if (offsetX < this.startX && offsetY < this.startY) {
       [this.startX, this.startY, this.endX, this.endY] = [offsetX, offsetY, this.startX, this.startY];
+    } else if (offsetY < this.startY) {
+      [this.startX, this.startY, this.endX, this.endY] = [this.startX, offsetY, offsetX, this.endY];
+    } else if (offsetX < this.startX) {
+      [this.startX, this.startY, this.endX, this.endY] = [offsetX, this.startY, this.startX, offsetY];
     } else {
       [this.endX, this.endY] = [offsetX, offsetY]
     }
@@ -417,25 +452,10 @@ export class EditRect extends Rect {
     this.strokeStyle = strokeStyle;
   }
 
-  setLineWidth(lineWidth) {
-    this.lineWidth = lineWidth;
-  }
-
-  setStrokeStyle(style) {
-    this.strokeStyle = style;
-  }
-
-  getLineWidth() {
-    return this.lineWidth || 1;
-  }
-
-  getStrokeStyle() {
-    return this.strokeStyle;
-  }
-
   mouseUpDraw(imageInfo) {
     this.draw(this.startX, this.startY, this.getWidth(), this.getHeight(), imageInfo);
   }
+
 
   draw(startX, startY, width, height, imageInfo) {
     // console.warn(startX, startY, width, height, imageInfo)
@@ -451,10 +471,27 @@ export class EditRect extends Rect {
 
 }
 
-class ScreenShotRect extends Rect {
+export class EditText extends Rect {
   constructor(props) {
     super(props);
+    const {text = ''} = {} = props;
+    this.text = text;
   }
 
+  setText(text) {
+    this.text = text;
+  }
 
+  getText() {
+    return this.text;
+  }
+
+  draw() {
+    const {canvas} = this;
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.strokeStyle = this.getStrokeStyle();
+    ctx.strokeText(this.getText(), this.getStartX(), this.getStartY());
+    ctx.restore();
+  }
 }
