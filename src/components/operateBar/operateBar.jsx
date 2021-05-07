@@ -62,12 +62,12 @@ export default function Operate(props) {
           </svg>
         </div>
         <div onClick={onAddMosaic} className={classes.btn}>
-          <svg t="1619955335199" className="icon" viewBox="0 0 1024 1024" version="1.1"
-               xmlns="http://www.w3.org/2000/svg"
-               p-id="3406" width="16" height="16">
+          <svg t="1620384304329" className="icon" viewBox="0 0 1024 1024" version="1.1"
+               xmlns="http://www.w3.org/2000/svg" p-id="1559" width="16" height="16">
+            <path d="M512 212h300v300H512zM212 512h300v300H212z" fill="#1296db" p-id="1560"/>
             <path
-              d="M213.333333 209.92v128h85.333334v-42.666667h170.666666v433.493334H384.853333v85.333333h256v-85.333333H554.666667V295.253333h170.666666v42.666667h85.333334v-128H213.333333z"
-              p-id="3407" fill={isAddingMosaic ? '#1296db' : '#fff'}/>
+              d="M812 992H212a180 180 0 0 1-180-180V212a180 180 0 0 1 180-180h600a180 180 0 0 1 180 180v600a180 180 0 0 1-180 180zM212 152a60 60 0 0 0-60 60v600a60 60 0 0 0 60 60h600a60 60 0 0 0 60-60V212a60 60 0 0 0-60-60z"
+              fill={isAddingMosaic ? '#1296db' : '#fff'} p-id="1561"/>
           </svg>
         </div>
       </section>

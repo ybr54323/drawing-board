@@ -237,7 +237,7 @@ export default function Index() {
         startY: offsetY,
         canvas: canvasRef.current
       });
-      mosaic.draw(MOSAIC_WIDTH);
+      mosaic.draw(mosaic.canvas, MOSAIC_WIDTH * 2);
       setMosaicList([...mosaicList, mosaic]);
       actionEmitter({
         type: ACTION_TYPE.ADD_MOSAIC,
@@ -323,26 +323,31 @@ export default function Index() {
             editTextList.map(function (editText) {
               return editText.draw.bind(editText);
             })
+          ).concat(
+            mosaicList.map(function (mosaic) {
+              return mosaic.draw.bind(mosaic, mosaic.canvas, MOSAIC_WIDTH * 2)
+            })
           )
         )
       }
     }
-    if (type === ACTION_TYPE.ADD_MOSAIC) {
-      if (moment === ACTION_MOMENT.STARTED) {
-        const mosaic = new Mosaic({
-          startX: offsetX,
-          startY: offsetY,
-          canvas: canvasRef.current
-        });
-        mosaic.draw(MOSAIC_WIDTH);
-        setMosaicList([...mosaicList, mosaic]);
-        actionEmitter({
-          type: ACTION_TYPE.ADD_MOSAIC,
-          moment: ACTION_MOMENT.STARTED,
-          cursor: getCursor(ACTION_TYPE.ADD_MOSAIC)
-        })
-      }
-    }
+    // todo
+    // if (type === ACTION_TYPE.ADD_MOSAIC) {
+    //   if (moment === ACTION_MOMENT.STARTED) {
+    //     const mosaic = new Mosaic({
+    //       startX: offsetX,
+    //       startY: offsetY,
+    //       canvas: canvasRef.current
+    //     });
+    //     mosaic.draw(MOSAIC_WIDTH);
+    //     setMosaicList([...mosaicList, mosaic]);
+    //     actionEmitter({
+    //       type: ACTION_TYPE.ADD_MOSAIC,
+    //       moment: ACTION_MOMENT.STARTED,
+    //       cursor: getCursor(ACTION_TYPE.ADD_MOSAIC)
+    //     })
+    //   }
+    // }
   }, 0)
 
   const handleMouseUp = throttle(function (ev) {
@@ -391,7 +396,11 @@ export default function Index() {
         }).concat(
           editTextList.map(function (editText) {
             return editText.draw.bind(editText);
-          })
+          }).concat(
+            mosaicList.map(function (mosaic) {
+              return mosaic.draw.bind(mosaic, mosaic.canvas, MOSAIC_WIDTH * 2)
+            })
+          )
         )
       )
 
@@ -508,41 +517,14 @@ export default function Index() {
     temCanvas.width = screenShotRect.getWidth();
     temCanvas.height = screenShotRect.getHeight();
     const temCtx = temCanvas.getContext('2d');
-
-    const baseStartX = screenShotRect.getStartX(),
-      baseStartY = screenShotRect.getStartY();
-
-    temCtx.drawImage(imageInfo.image,
-      baseStartX,
-      baseStartY,
+    // 现有的图形数据转移
+    const imageData = canvasRef.current.getContext('2d').getImageData(
+      screenShotRect.getStartX(),
+      screenShotRect.getStartY(),
       screenShotRect.getWidth(),
-      screenShotRect.getHeight(),
-      0,
-      0,
-      screenShotRect.getWidth(),
-      screenShotRect.getHeight());
-    if (editRectList.length) {
-      editRectList.forEach(function (editRect) {
-        temCtx.strokeStyle = editRect.getStrokeStyle();
-        temCtx.lineWidth = editRect.getLineWidth();
-        temCtx.strokeRect(
-          editRect.getStartX() - baseStartX,
-          editRect.getStartY() - baseStartY,
-          editRect.getWidth(),
-          editRect.getHeight());
-      })
-    }
-    if (editTextList.length) {
-      editTextList.forEach(function (editText) {
-        temCtx.strokeStyle = editText.getStrokeStyle();
-        temCtx.lineWidth = editText.getLineWidth();
-        temCtx.strokeText(
-          editText.getText(),
-          editText.getStartX() - baseStartX,
-          editText.getStartY() + 10 - baseStartY);
-      })
-    }
-    // todo 其他几个矩形
+      screenShotRect.getHeight()
+    )
+    temCtx.putImageData(imageData, 0, 0);
     temCanvas.toBlob(function (blob) {
       const url = URL.createObjectURL(blob);
       const downLink = document.createElement('a');
@@ -599,7 +581,7 @@ export default function Index() {
     editText.setText(ev.target.value);
   }
 
-  function handleAddMosaic(ev) {
+  function handleAddMosaic() {
     actionEmitter({
       type: ACTION_TYPE.ADD_MOSAIC,
       moment: ACTION_MOMENT.BEFORE_START,

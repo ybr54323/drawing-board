@@ -504,15 +504,13 @@ export class Mosaic extends Rect {
     super(props);
   }
 
-  draw(mW) {
-    const {canvas} = this;
+  draw(canvas, mW) {
     const ctx = canvas.getContext('2d');
     ctx.save();
     draw(ctx, this.getStartX() - mW, this.getStartY() - mW, mW, mW)
     draw(ctx, this.getStartX(), this.getStartY() - mW, mW, mW)
     draw(ctx, this.getStartX() - mW, this.getStartY(), mW, mW)
     draw(ctx, this.getStartX(), this.getStartY(), mW, mW)
-
     ctx.restore();
   }
 }
@@ -526,7 +524,7 @@ function draw(ctx, sx, sy, sw, sh) {
   //创建一个新的ImageData对象
   const newImg = ctx.createImageData(sw, sh);
   //马赛克的程度，数字越大越模糊
-  const num = 6;
+  const num = 10;
   //等分画布
   const stepW = w / num;
   const stepH = h / num;
@@ -534,7 +532,7 @@ function draw(ctx, sx, sy, sw, sh) {
   for (let i = 0; i < stepH; i++) {
     for (let j = 0; j < stepW; j++) {
       //获取一个小方格的随机颜色，这是小方格的随机位置获取的
-      const color = getXY(oImg, j * num + Math.floor(Math.random() * num), i * num + Math.floor(Math.random() * num));
+      const color = getXY(oImg, j * num, i * num);
       //这里是循环小方格的像素点，
       for (let k = 0; k < num; k++) {
         for (let l = 0; l < num; l++) {
@@ -550,8 +548,6 @@ function draw(ctx, sx, sy, sw, sh) {
 
 function getXY(obj, x, y) {
   const w = obj.width;
-  const h = obj.height;
-  const d = obj.data;
   const color = [];
   color[0] = obj.data[4 * (y * w + x)];
   color[1] = obj.data[4 * (y * w + x) + 1];
@@ -562,8 +558,6 @@ function getXY(obj, x, y) {
 
 function setXY(obj, x, y, color) {
   const w = obj.width;
-  const h = obj.height;
-  const d = obj.data;
   obj.data[4 * (y * w + x)] = color[0];
   obj.data[4 * (y * w + x) + 1] = color[1];
   obj.data[4 * (y * w + x) + 2] = color[2];
