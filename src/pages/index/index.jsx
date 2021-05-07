@@ -462,7 +462,8 @@ export default function Index() {
   const operateBarVisibility = [
       ACTION_TYPE.SCREEN_SHOT,
       ACTION_TYPE.EDIT_TEXT,
-      ACTION_TYPE.EDIT_RECT
+      ACTION_TYPE.EDIT_RECT,
+      ACTION_TYPE.ADD_MOSAIC,
     ].indexOf(type) > -1 && [ACTION_MOMENT.INIT].indexOf(moment) === -1,
     isEditingRect = type === ACTION_TYPE.EDIT_RECT,
     isEditingText = type === ACTION_TYPE.EDIT_TEXT;
