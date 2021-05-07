@@ -7,9 +7,11 @@ export default function Operate(props) {
       x, y, display,
       isEditingRect = false,
       isEditingText = false,
+      isAddingMosaic = false,
     },
     onEditRect,
     onEditText,
+    onAddMosaic,
     onChangeLineWidth = function () {
     },
     onChangeStrokeStyle = function () {
@@ -57,6 +59,15 @@ export default function Operate(props) {
             <path
               d="M213.333333 209.92v128h85.333334v-42.666667h170.666666v433.493334H384.853333v85.333333h256v-85.333333H554.666667V295.253333h170.666666v42.666667h85.333334v-128H213.333333z"
               p-id="3407" fill={isEditingText ? '#1296db' : '#fff'}/>
+          </svg>
+        </div>
+        <div onClick={onAddMosaic} className={classes.btn}>
+          <svg t="1619955335199" className="icon" viewBox="0 0 1024 1024" version="1.1"
+               xmlns="http://www.w3.org/2000/svg"
+               p-id="3406" width="16" height="16">
+            <path
+              d="M213.333333 209.92v128h85.333334v-42.666667h170.666666v433.493334H384.853333v85.333333h256v-85.333333H554.666667V295.253333h170.666666v42.666667h85.333334v-128H213.333333z"
+              p-id="3407" fill={isAddingMosaic ? '#1296db' : '#fff'}/>
           </svg>
         </div>
       </section>

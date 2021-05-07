@@ -47,7 +47,7 @@ import {
   isNumInRange,
   EditRect,
   getImageInfo,
-  drawScene, EditText, copyText
+  drawScene, EditText, copyText, Mosaic, MOSAIC_WIDTH
 } from "../../function";
 
 export default function Index() {
@@ -65,7 +65,7 @@ export default function Index() {
     const {w, h, imageData} = imageInfo;
     if (!imageData) return Message.warning('need imageData');
     if (offsetX >= 1 && offsetY >= 1 && offsetX * offsetY <= w * h) {
-      let start = (offsetY - 1) * 4 * w + (offsetX - 1) * 4;
+      const start = (offsetY - 1) * 4 * w + (offsetX - 1) * 4;
       return [
         imageData.data[start],
         imageData.data[start + 1],
@@ -81,6 +81,9 @@ export default function Index() {
   const [editRectList, setEditRectList] = useState([]);
   // 绘制文本数组
   const [editTextList, setEditTextList] = useState([]);
+
+  // mosaic
+  const [mosaicList, setMosaicList] = useState([]);
 
   const [editRectStyles, setEditRectStyles] = useState([1, '#000']);
 
@@ -224,7 +227,25 @@ export default function Index() {
       ]);
 
     }
-  }, 100);
+    if (type === ACTION_TYPE.ADD_MOSAIC) {
+      // 判断是否在screenShot范围内
+      if (!isInScreenShotRect(offsetX, offsetY)) {
+        return l('范围外');
+      }
+      const mosaic = new Mosaic({
+        startX: offsetX,
+        startY: offsetY,
+        canvas: canvasRef.current
+      });
+      mosaic.draw(MOSAIC_WIDTH);
+      setMosaicList([...mosaicList, mosaic]);
+      actionEmitter({
+        type: ACTION_TYPE.ADD_MOSAIC,
+        moment: ACTION_MOMENT.STARTED,
+        cursor: getCursor(ACTION_TYPE.ADD_MOSAIC)
+      })
+    }
+  }, 0);
 
 
   const handleMouseMove = throttle(function (ev) {
@@ -306,7 +327,22 @@ export default function Index() {
         )
       }
     }
-
+    if (type === ACTION_TYPE.ADD_MOSAIC) {
+      if (moment === ACTION_MOMENT.STARTED) {
+        const mosaic = new Mosaic({
+          startX: offsetX,
+          startY: offsetY,
+          canvas: canvasRef.current
+        });
+        mosaic.draw(MOSAIC_WIDTH);
+        setMosaicList([...mosaicList, mosaic]);
+        actionEmitter({
+          type: ACTION_TYPE.ADD_MOSAIC,
+          moment: ACTION_MOMENT.STARTED,
+          cursor: getCursor(ACTION_TYPE.ADD_MOSAIC)
+        })
+      }
+    }
   }, 0)
 
   const handleMouseUp = throttle(function (ev) {
@@ -366,7 +402,20 @@ export default function Index() {
       })
     }
     if (type === ACTION_TYPE.EDIT_TEXT) {
+    }
+    if (type === ACTION_TYPE.ADD_MOSAIC) {
+      // 判断是否在screenShot范围内
+      if (!isInScreenShotRect(offsetX, offsetY)) {
+        return l('范围外');
+      }
+      if (moment === ACTION_MOMENT.STARTED) {
 
+        actionEmitter({
+          type: ACTION_TYPE.ADD_MOSAIC,
+          moment: ACTION_MOMENT.BEFORE_START,
+          cursor: getCursor(ACTION_TYPE.ADD_MOSAIC)
+        })
+      }
     }
   }, 0);
 
@@ -418,7 +467,6 @@ export default function Index() {
     isEditingRect = type === ACTION_TYPE.EDIT_RECT,
     isEditingText = type === ACTION_TYPE.EDIT_TEXT;
 
-  w(operateBarVisibility)
   screenShotRect && Object.assign(operateBarStyle, {
     display: operateBarVisibility ? 'block' : 'none',
     x: screenShotRect.getStartX() + screenShotRect.canvas.offsetLeft,
@@ -550,6 +598,14 @@ export default function Index() {
     editText.setText(ev.target.value);
   }
 
+  function handleAddMosaic(ev) {
+    actionEmitter({
+      type: ACTION_TYPE.ADD_MOSAIC,
+      moment: ACTION_MOMENT.BEFORE_START,
+      cursor: getCursor(ACTION_TYPE.ADD_MOSAIC),
+    })
+  }
+
 
   return (
     <div className={
@@ -575,6 +631,7 @@ export default function Index() {
           <img src={SvgDownload} alt="icon"/>
           点击下载
         </Button>
+
       </OperateMenu>
       <div
 
@@ -594,6 +651,7 @@ export default function Index() {
                     onChangeStrokeStyle={handleChangeStrokeStyle}
                     onEditRect={handleEditRect}
                     onEditText={handleEditText}
+                    onAddMosaic={handleAddMosaic}
         />
 
       </div>

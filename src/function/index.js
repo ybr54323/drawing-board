@@ -18,6 +18,7 @@ export const
     PICK_COLOR: 'PICK_COLOR', // 色吸管
     EDIT_RECT: 'EDIT_RECT', // 编辑状态
     EDIT_TEXT: 'EDIT_TEXT',
+    ADD_MOSAIC: 'ADD_MOSAIC',
   },
 
   ACTION_MOMENT = { // 生命周期
@@ -32,7 +33,8 @@ export const
   ABOUT_NUM = 5, // 命中半径
 
   SCALE = 1, // canvas 放大比例
-  REGULATE_STROKE_STYLE = 'rgba(18,150,219,1)'
+  REGULATE_STROKE_STYLE = 'rgba(18,150,219,1)',
+  MOSAIC_WIDTH = 5;
 
 export function copyText(text, callback) { // text: 要复制的内容， callback: 回调
   let tag = document.createElement('input');
@@ -494,4 +496,76 @@ export class EditText extends Rect {
     ctx.strokeText(this.getText(), this.getStartX(), this.getStartY() + 10);
     ctx.restore();
   }
+}
+
+
+export class Mosaic extends Rect {
+  constructor(props = {}) {
+    super(props);
+  }
+
+  draw(mW) {
+    const {canvas} = this;
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    draw(ctx, this.getStartX() - mW, this.getStartY() - mW, mW, mW)
+    draw(ctx, this.getStartX(), this.getStartY() - mW, mW, mW)
+    draw(ctx, this.getStartX() - mW, this.getStartY(), mW, mW)
+    draw(ctx, this.getStartX(), this.getStartY(), mW, mW)
+
+    ctx.restore();
+  }
+}
+
+
+function draw(ctx, sx, sy, sw, sh) {
+
+  const oImg = ctx.getImageData(sx, sy, sw, sh);
+  const w = oImg.width;
+  const h = oImg.height;
+  //创建一个新的ImageData对象
+  const newImg = ctx.createImageData(sw, sh);
+  //马赛克的程度，数字越大越模糊
+  const num = 6;
+  //等分画布
+  const stepW = w / num;
+  const stepH = h / num;
+  //这里是循环画布的像素点
+  for (let i = 0; i < stepH; i++) {
+    for (let j = 0; j < stepW; j++) {
+      //获取一个小方格的随机颜色，这是小方格的随机位置获取的
+      const color = getXY(oImg, j * num + Math.floor(Math.random() * num), i * num + Math.floor(Math.random() * num));
+      //这里是循环小方格的像素点，
+      for (let k = 0; k < num; k++) {
+        for (let l = 0; l < num; l++) {
+          //设置小方格的颜色
+          setXY(newImg, j * num + l, i * num + k, color);
+        }
+      }
+
+    }
+  }
+  ctx.putImageData(newImg, sx, sy);
+}
+
+function getXY(obj, x, y) {
+  const w = obj.width;
+  const h = obj.height;
+  const d = obj.data;
+  const color = [];
+  color[0] = obj.data[4 * (y * w + x)];
+  color[1] = obj.data[4 * (y * w + x) + 1];
+  color[2] = obj.data[4 * (y * w + x) + 2];
+  color[3] = obj.data[4 * (y * w + x) + 3];
+  return color;
+}
+
+function setXY(obj, x, y, color) {
+  const w = obj.width;
+  const h = obj.height;
+  const d = obj.data;
+  obj.data[4 * (y * w + x)] = color[0];
+  obj.data[4 * (y * w + x) + 1] = color[1];
+  obj.data[4 * (y * w + x) + 2] = color[2];
+  obj.data[4 * (y * w + x) + 3] = color[3];
 }
