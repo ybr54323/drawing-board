@@ -63,7 +63,7 @@ export default function Index() {
   const calcCursorPosition = throttle(function (ev, imageInfo) {
     const {nativeEvent: {offsetX, offsetY}} = ev;
     const {w, h, imageData} = imageInfo;
-    if (!imageData) return Message.warning('need imageData');
+    if (!imageData) return [];
     if (offsetX >= 1 && offsetY >= 1 && offsetX * offsetY <= w * h) {
       const start = (offsetY - 1) * 4 * w + (offsetX - 1) * 4;
       return [
@@ -254,7 +254,7 @@ export default function Index() {
     const {type, moment} = actionStatus;
 
     if (type === ACTION_TYPE.PICK_COLOR) {
-      const colorArrayData = calcCursorPosition(ev, imageInfo)
+      const colorArrayData = calcCursorPosition(ev, imageInfo)||[]
       setPosition({
         x: pageX + 15,
         y: pageY + 15,

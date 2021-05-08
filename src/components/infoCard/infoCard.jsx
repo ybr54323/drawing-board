@@ -10,7 +10,7 @@ export default function InfoCard(props) {
     transform: 'translate3d(0,0,0)',
     top: y + 'px',
     left: x + 'px',
-    display: colorArrayData.length > 0 ? 'flex' : 'none',
+    display: colorArrayData?.length > 0 ? 'flex' : 'none',
   }
   const colorStr = colorArrayData.slice(0, 4).reduce(function (str, num) {
     return str + num.toString(16);
