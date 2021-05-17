@@ -19,6 +19,7 @@ export const
     EDIT_RECT: 'EDIT_RECT', // 编辑状态
     EDIT_TEXT: 'EDIT_TEXT',
     ADD_MOSAIC: 'ADD_MOSAIC',
+    WATERMARK: 'WATERMARK',
   },
 
   ACTION_MOMENT = { // 生命周期

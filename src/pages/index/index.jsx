@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect} from "react";
+import React, {useState, useRef, useEffect, useCallback} from "react";
 import Outer from "../../components/outer/outer";
 import FileInput from '../../components/fileInput/file-input';
 
@@ -101,7 +101,6 @@ export default function Index() {
 
   useEffect(function () {
     getImageInfo(URL.createObjectURL(file), outerRef.current).then(function (imageInfo) {
-      // todo 这里太乱了，处理下
       actionEmitter({
         type: ACTION_TYPE.INIT,
         moment: ACTION_MOMENT.BEFORE_START,
@@ -254,7 +253,7 @@ export default function Index() {
     const {type, moment} = actionStatus;
 
     if (type === ACTION_TYPE.PICK_COLOR) {
-      const colorArrayData = calcCursorPosition(ev, imageInfo)||[]
+      const colorArrayData = calcCursorPosition(ev, imageInfo) || []
       setPosition({
         x: pageX + 15,
         y: pageY + 15,
@@ -331,23 +330,6 @@ export default function Index() {
         )
       }
     }
-    // todo
-    // if (type === ACTION_TYPE.ADD_MOSAIC) {
-    //   if (moment === ACTION_MOMENT.STARTED) {
-    //     const mosaic = new Mosaic({
-    //       startX: offsetX,
-    //       startY: offsetY,
-    //       canvas: canvasRef.current
-    //     });
-    //     mosaic.draw(MOSAIC_WIDTH);
-    //     setMosaicList([...mosaicList, mosaic]);
-    //     actionEmitter({
-    //       type: ACTION_TYPE.ADD_MOSAIC,
-    //       moment: ACTION_MOMENT.STARTED,
-    //       cursor: getCursor(ACTION_TYPE.ADD_MOSAIC)
-    //     })
-    //   }
-    // }
   }, 0)
 
   const handleMouseUp = throttle(function (ev) {
@@ -500,6 +482,38 @@ export default function Index() {
     top: editTextList[len - 1].getStartY() + screenShotRect.canvas.offsetTop,
   })
 
+  function handleAppendWatermark() {
+    if (!imageInfo) return Message.warning('请先选择图片');
+
+    const {type} = actionStatus;
+    const ctx = canvasRef.current.getContext('2d');
+    const {width, height} = canvasRef.current;
+
+    if (type === ACTION_TYPE.WATERMARK) {
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(imageInfo.image, 0, 0, width, height);
+    }
+    const text = prompt('请输入水印文字');
+    if (!text) return Message.warning('要输入文字');
+
+
+    for (let i = -2 * width; i < width; i += ~~(2 * text.length * 15)) {
+      for (let j = 0; j < 2 * height; j += ~~(height / 4)) {
+        ctx.rotate((-45 * Math.PI) / 180); // 水印初始偏转角度
+        ctx.font = "20px microsoft songti";
+        ctx.fillStyle = "rgba(0,0,0,0.2)";
+        ctx.fillText(text, i, j);
+        ctx.rotate((45 * Math.PI) / 180); // 把水印偏转角度调整为原来的，不然他会一直转
+      }
+    }
+
+    actionEmitter({
+      type: ACTION_TYPE.WATERMARK,
+      moment: ACTION_MOMENT.INIT,
+      cursor: getCursor()
+    });
+
+  }
 
   function handleCopy() {
     if (!imageInfo) return Message.warning('请先选择图片');
@@ -510,10 +524,13 @@ export default function Index() {
     if (type === ACTION_TYPE.PICK_COLOR) {
       return Message.notice('请点击要取色的区域');
     }
+    if (type === ACTION_TYPE.WATERMARK) {
+      canvasRef.current.toBlob(download, 'image/jpeg', 1);
+      return Message.success('复制成功');
+    }
     if (!screenShotRect) return;
     let temCanvas = document.createElement('canvas');
     outerRef.current.appendChild(temCanvas);
-
     temCanvas.width = screenShotRect.getWidth();
     temCanvas.height = screenShotRect.getHeight();
     const temCtx = temCanvas.getContext('2d');
@@ -525,17 +542,19 @@ export default function Index() {
       screenShotRect.getHeight()
     )
     temCtx.putImageData(imageData, 0, 0);
-    temCanvas.toBlob(function (blob) {
-      const url = URL.createObjectURL(blob);
-      const downLink = document.createElement('a');
-      downLink.href = url;
-      downLink.download = 'test.jpg';
-      downLink.click();
-      URL.revokeObjectURL(url);
-      temCanvas = null;
-      return Message.success('复制成功')
-    }, 'image/jpeg', 1);
+    temCanvas.toBlob(download, 'image/jpeg', 1);
+    Message.success('复制成功');
   }
+
+  const download = useCallback(blob => {
+    const url = URL.createObjectURL(blob);
+    const downLink = document.createElement('a');
+    downLink.href = url;
+    downLink.download = 'test.jpg';
+    downLink.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
 
   function handleEditRect() {
     actionEmitter({
@@ -614,7 +633,9 @@ export default function Index() {
           <img src={SvgDownload} alt="icon"/>
           点击下载
         </Button>
-
+        <Button className={classes.btn} onClick={handleAppendWatermark}>
+          添加水印
+        </Button>
       </OperateMenu>
       <div
 
