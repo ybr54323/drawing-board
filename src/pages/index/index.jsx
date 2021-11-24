@@ -100,6 +100,7 @@ export default function Index() {
   }, [canvasRef])
 
   useEffect(function () {
+    if (!file) return
     getImageInfo(URL.createObjectURL(file)).then(function (imageInfo) {
       actionEmitter({
         type: ACTION_TYPE.INIT,
