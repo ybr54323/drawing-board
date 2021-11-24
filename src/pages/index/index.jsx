@@ -100,7 +100,7 @@ export default function Index() {
   }, [canvasRef])
 
   useEffect(function () {
-    getImageInfo(URL.createObjectURL(file), outerRef.current).then(function (imageInfo) {
+    getImageInfo(URL.createObjectURL(file)).then(function (imageInfo) {
       actionEmitter({
         type: ACTION_TYPE.INIT,
         moment: ACTION_MOMENT.BEFORE_START,
@@ -111,17 +111,18 @@ export default function Index() {
         imageData: renderImageAndGetImageData(canvasRef.current, imageInfo)
       });
     }).catch(function (err) {
+      return Message.warning('加载图片失败，请刷新重试');
     })
   }, [file])
 
-
+  // 选择图片
   function handleFileChange(ev) {
     if (ev.target.files.length === 0) return;
     const [file] = ev.target.files;
     setFile(file);
   }
 
-
+  // 往canvas渲染图片并且借助canvas的api(getImageData)返回图片data
   function renderImageAndGetImageData(canvas, imageInfo) {
     if (!imageInfo) throw new Error('no image file obj');
     if (!canvas) throw new Error('no canvas');
@@ -620,6 +621,7 @@ export default function Index() {
     >
       <Outer ref={outerRef}/>
       <OperateMenu>
+        {/* 选择图片 */}
         <FileInput handleInputChange={handleFileChange}/>
         <Button className={classes.btn} onClick={handlePickColor}>
           <img src={SvgColorPicker} alt="icon"/>
