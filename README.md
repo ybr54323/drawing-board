@@ -21,7 +21,7 @@ npm i
 
 #### 运行
 ```js
-npm run serve
+npm run dev
 ```
 
 #### 使用步骤
